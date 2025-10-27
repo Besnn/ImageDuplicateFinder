@@ -1,4 +1,4 @@
-package hash;
+package index;
 
 public final class Hamming {
     public static int distance(long a, long b) {
