@@ -10,6 +10,7 @@ import java.util.concurrent.Callable;
 public class CLI implements Callable<Integer> {
     @Override
     public Integer call() throws Exception {
+        System.out.println("test");
         return 0;
     }
 }
