@@ -1,5 +1,7 @@
 package index;
 
+import hash.Hamming;
+
 import java.util.*;
 
 public class BKTreeIndex implements Index {
@@ -16,7 +18,7 @@ public class BKTreeIndex implements Index {
         if (root == null) { root = new Node(hash, id); return; }
         Node cur = root;
         while (true) {
-            int d = index.Hamming.distance(hash, cur.key);
+            int d = Hamming.distance(hash, cur.key);
             if (d == 0) { cur.ids.add(id); return; }
             Node next = cur.edges.get(d);
             if (next == null) { cur.edges.put(d, new Node(hash, id)); return; }
@@ -32,7 +34,7 @@ public class BKTreeIndex implements Index {
         stack.push(root);
         while (!stack.isEmpty()) {
             Node n = stack.pop();
-            int dist = index.Hamming.distance(hash, n.key);
+            int dist = Hamming.distance(hash, n.key);
             if (dist <= radius) out.addAll(n.ids);
             for (int k = dist - radius; k <= dist + radius; k++) {
                 Node child = n.edges.get(k);
