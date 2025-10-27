@@ -1,7 +1,6 @@
-package me.besnn;
+package core;
 
 import com.drew.imaging.ImageMetadataReader;
-import com.drew.metadata.Directory;
 import com.drew.metadata.Metadata;
 import com.drew.metadata.exif.ExifIFD0Directory;
 
@@ -10,7 +9,6 @@ import java.awt.RenderingHints;
 import java.awt.geom.AffineTransform;
 import java.awt.image.AffineTransformOp;
 import java.awt.image.BufferedImage;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -141,3 +139,10 @@ public final class Exif {
         return dst;
     }
 }
+
+//TODO: test this functionality
+// Tests I should write:
+// No EXIF → image unchanged.
+// Each orientation 1..8 → pixel coordinates map correctly (use tiny fixtures: arrows or “L” shapes).
+// Alpha preservation: input with transparency → output still has alpha.
+// Non-JPEG / corrupted EXIF → no exceptions, orientation=1.
