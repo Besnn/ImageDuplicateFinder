@@ -1,5 +1,7 @@
-package core;
+package app;
 
+import core.Exif;
+import core.Gray;
 import picocli.CommandLine;
 
 import javax.imageio.ImageIO;

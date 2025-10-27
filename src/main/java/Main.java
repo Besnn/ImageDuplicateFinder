@@ -1,4 +1,4 @@
-import core.CLI;
+import app.CLI;
 
 import picocli.CommandLine;
 
