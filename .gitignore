@@ -40,3 +40,5 @@ target/
 !**/src/test/**/target/
 .kotlin
 /tmp/
+/debug-after.jpg
+/debug-before.jpg

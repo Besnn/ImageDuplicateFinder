@@ -48,6 +48,8 @@ public final class Exif {
             }
         } catch (Exception ignore) {
             // Non-fatal: treat as no-orientation
+            //FIXME: remove after debugging
+            System.out.println("Failed to read EXIF orientation for " + imagePath);
         }
         return 1;
     }
@@ -60,9 +62,9 @@ public final class Exif {
             case 2 -> flipHorizontal(src);
             case 3 -> rotate180(src);
             case 4 -> flipVertical(src);
-            case 5 -> transpose(src);   // mirror horizontal + rotate 270
+            case 5 -> rotate90(flipHorizontal(src));   // mirror horizontal + rotate 270
             case 6 -> rotate90(src);
-            case 7 -> transverse(src);  // mirror horizontal + rotate 90
+            case 7 -> rotate270(flipHorizontal(src));  // mirror horizontal + rotate 90
             case 8 -> rotate270(src);
             default -> src;
         };
