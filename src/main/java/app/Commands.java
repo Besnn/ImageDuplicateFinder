@@ -20,6 +20,8 @@ import java.util.ArrayList;
 
 import java.util.concurrent.Callable;
 
+//TODO: work on subcommands
+
 public final class Commands {
 
     @Command(
@@ -152,3 +154,5 @@ public final class Commands {
         }
     }
 }
+
+//TODO: what should I do with cluster.csv?
