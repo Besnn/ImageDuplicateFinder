@@ -1,17 +1,20 @@
 package app;
 
-import core.Exif;
-import core.Gray;
 import picocli.CommandLine;
-import picocli.CommandLine.Command;
 
-import javax.imageio.ImageIO;
-import java.awt.image.BufferedImage;
 import java.util.concurrent.Callable;
+import java.util.Arrays;
 
-@CommandLine.Command(name = "idf", mixinStandardHelpOptions = true,
+@CommandLine.Command(
+        name = "idf",
+        mixinStandardHelpOptions = true,
         version = "0.0.1",
-        description = "for now asdf")
+        description = "Image Duplicate Finder",
+        subcommands = {
+                Commands.Hash.class,
+                Commands.Cluster.class
+        }
+)
 public class CLI implements Callable<Integer> {
     @Override
     public Integer call() {
@@ -20,7 +23,11 @@ public class CLI implements Callable<Integer> {
     }
 
     public static void main(String[] args) {
-        int code = new CommandLine(new CLI()).execute(args);
+        System.out.println(java.util.Arrays.toString(args));
+        CommandLine cmd = new CommandLine(new CLI());
+        cmd.addSubcommand("hash", new Commands.Hash());
+        cmd.addSubcommand("cluster", new Commands.Cluster());
+        int code = cmd.execute(args);
         System.exit(code);
     }
 
@@ -30,5 +37,3 @@ public class CLI implements Callable<Integer> {
         public static final int RUNTIME_ERROR = 1;
     }
 }
-
-//TODO: implement
