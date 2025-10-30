@@ -12,7 +12,9 @@ import java.util.Arrays;
         description = "Image Duplicate Finder",
         subcommands = {
                 Commands.Hash.class,
-                Commands.Cluster.class
+                Commands.Cluster.class,
+                Commands.Plan.class,
+                Commands.Apply.class
         }
 )
 public class CLI implements Callable<Integer> {

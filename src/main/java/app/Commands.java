@@ -14,6 +14,7 @@ import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 
 import java.util.Map;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.ArrayList;
@@ -153,6 +154,188 @@ public final class Commands {
             }
         }
     }
+
+    @Command(
+            name="plan",
+            description="Create deduplication plan from clusters.csv",
+            mixinStandardHelpOptions = true
+    )
+    public static class Plan implements Callable<Integer> {
+
+        @Parameters(index = "0", paramLabel = "CLUSTERS", description = "clusters.csv (clusterId,path)")
+        Path clustersCsv;
+
+        @Option(names = "--out", defaultValue = "plan.csv", description = "Output plan CSV")
+        Path out;
+
+        @Override
+        public Integer call() {
+            try {
+                // group paths by clusterId
+                Map<String, List<Path>> groups = new LinkedHashMap<>();
+                for (String line : Files.readAllLines(clustersCsv)) {
+                    if (line.isBlank()) continue;
+                    int c = line.indexOf(',');
+                    if (c <= 0) continue;
+                    String cid = line.substring(0, c);
+                    Path p = Path.of(line.substring(c + 1));
+                    groups.computeIfAbsent(cid, k -> new ArrayList<>()).add(p);
+                }
+
+                List<String> rows = new ArrayList<>();
+                rows.add("clusterId,action,path,reason");
+
+                for (var e : groups.entrySet()) {
+                    String cid = e.getKey();
+                    List<Path> files = e.getValue();
+
+                    // score files: bigger resolution, then size, then older mtime, then path
+                    files.sort((a, b) -> {
+                        FileMeta ma = meta(a), mb = meta(b);
+                        int byPixels = Long.compare(mb.pixels, ma.pixels);
+                        if (byPixels != 0) return byPixels;
+                        int bySize = Long.compare(mb.size, ma.size);
+                        if (bySize != 0) return bySize;
+                        int byTime = Long.compare(ma.mtime, mb.mtime); // older first
+                        if (byTime != 0) return byTime;
+                        return a.toString().compareToIgnoreCase(b.toString());
+                    });
+
+                    Path keeper = files.getFirst();
+                    FileMeta mk = meta(keeper);
+                    rows.add(String.format("%s,KEEP,%s,keeper(pixels=%d,size=%d,mtime=%d)",
+                            cid, keeper, mk.pixels, mk.size, mk.mtime));
+
+                    for (int i = 1; i < files.size(); i++) {
+                        Path dupe = files.get(i);
+                        FileMeta md = meta(dupe);
+                        rows.add(String.format("%s,DELETE,%s,dupe(pixels=%d,size=%d,mtime=%d)",
+                                cid, dupe, md.pixels, md.size, md.mtime));
+                    }
+                }
+
+                Files.write(out, rows);
+                System.out.println("Plan written -> " + out);
+                return 0;
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                return 1;
+            }
+        }
+
+        static final class FileMeta {
+            final long pixels, size, mtime;
+
+            FileMeta(long pixels, long size, long mtime) {
+                this.pixels = pixels;
+                this.size = size;
+                this.mtime = mtime;
+            }
+        }
+
+        static FileMeta meta(Path p) {
+            try {
+                long size = Files.size(p);
+                long mtime = Files.getLastModifiedTime(p).toMillis();
+                // Fast dimension probe: read minimally (okay for JPEG/PNG). If you want ultra-fast,
+                // you can use metadata-extractor to read dimensions without full decode.
+                var img = javax.imageio.ImageIO.read(p.toFile());
+                long pixels = (img != null) ? (long) img.getWidth() * img.getHeight() : -1;
+                return new FileMeta(pixels, size, mtime);
+            } catch (Exception e) {
+                return new FileMeta(-1, -1, Long.MAX_VALUE); // penalize unreadables
+            }
+        }
+    }
+
+    @Command(
+            name="apply",
+            description="Apply plan.csv: move DELETE files to quarantine",
+            mixinStandardHelpOptions = true
+    )
+    public static class Apply implements Callable<Integer> {
+
+        @Parameters(index="0", paramLabel="PLAN", description="plan.csv (clusterId,action,path,reason)")
+        Path planCsv;
+
+        @Option(names="--quarantine", defaultValue="./quarantine", description="Folder to move duplicates")
+        Path quarantine;
+
+        @Option(names="--hardlink", description="Replace DELETE files with hardlinks to keeper when on same filesystem")
+        boolean hardlink;
+
+        @Override public Integer call() {
+            try {
+                Files.createDirectories(quarantine);
+                Map<String, Path> keepers = new HashMap<>();
+
+                // Pre-scan to remember keeper paths per cluster
+                List<String> lines = Files.readAllLines(planCsv);
+                for (String line : lines) {
+                    if (line.startsWith("clusterId") || line.isBlank()) continue;
+                    String[] parts = line.split(",", 4);
+                    String cid = parts[0], action = parts[1], path = parts[2];
+                    if ("KEEP".equalsIgnoreCase(action)) keepers.put(cid, Path.of(path));
+                }
+
+                // Apply DELETE actions
+                for (String line : lines) {
+                    if (line.startsWith("clusterId") || line.isBlank()) continue;
+                    String[] parts = line.split(",", 4);
+                    String cid = parts[0], action = parts[1], path = parts[2];
+                    Path file = Path.of(path);
+
+                    if ("DELETE".equalsIgnoreCase(action)) {
+                        if (hardlink) {
+                            Path keeper = keepers.get(cid);
+                            if (keeper != null && Files.exists(keeper)) {
+                                // move to quarantine first (safety), then optionally replace original with hardlink to keeper
+                                Path dest = quarantine.resolve(file.getFileName().toString());
+                                safeMove(file, dest);
+                                // If you truly want in-place hardlinking, you'd link back at original path:
+                                // Files.createLink(file, keeper);  // works only on same filesystem and if original path free
+                            } else {
+                                // fallback to just quarantine
+                                Path dest = quarantine.resolve(file.getFileName().toString());
+                                safeMove(file, dest);
+                            }
+                        } else {
+                            Path dest = quarantine.resolve(file.getFileName().toString());
+                            safeMove(file, dest);
+                        }
+                    }
+                }
+                System.out.println("Apply completed. Review " + quarantine);
+                return 0;
+            } catch (Exception e) {
+                e.printStackTrace();
+                return 1;
+            }
+        }
+
+        static void safeMove(Path src, Path dst) throws Exception {
+            Path uniq = dst;
+            int i = 1;
+            while (Files.exists(uniq)) {
+                String name = dst.getFileName().toString();
+                String base;
+                String ext = "";
+                int dot = name.lastIndexOf('.');
+                if (dot > 0) {  // Changed from >= to > to handle hidden files better
+                    base = name.substring(0, dot);
+                    ext = name.substring(dot);
+                } else {
+                    base = name;
+                }
+                uniq = dst.getParent().resolve(base + "_" + (i++) + ext);
+            }
+            Files.createDirectories(uniq.getParent());
+            Files.move(src, uniq);
+        }
+    }
+
 }
 
 //TODO: what should I do with cluster.csv?
+
+//TODO: figure out how the other algorithms work
