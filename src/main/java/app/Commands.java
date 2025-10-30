@@ -21,7 +21,6 @@ import java.util.ArrayList;
 
 import java.util.concurrent.Callable;
 
-//TODO: work on subcommands
 
 public final class Commands {
 
@@ -335,7 +334,3 @@ public final class Commands {
     }
 
 }
-
-//TODO: what should I do with cluster.csv?
-
-//TODO: figure out how the other algorithms work

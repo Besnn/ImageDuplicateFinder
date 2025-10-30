@@ -48,7 +48,6 @@ public final class Exif {
             }
         } catch (Exception ignore) {
             // Non-fatal: treat as no-orientation
-            //FIXME: remove after debugging
             System.out.println("Failed to read EXIF orientation for " + imagePath);
         }
         return 1;
