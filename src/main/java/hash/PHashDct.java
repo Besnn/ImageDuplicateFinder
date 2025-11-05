@@ -29,7 +29,7 @@ public class PHashDct implements Hasher {
         double mean = java.util.Arrays.stream(low,1,64).average().orElse(0); // skip DC
         long bits=0;
         for (int i=0;i<64;i++)
-            if (low[i] > mean) bits |= (1L << i);
+            if (low[i] > mean) bits = bits | (1L << i);
         return bits;
     }
 
