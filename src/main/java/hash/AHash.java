@@ -15,7 +15,10 @@ public class AHash implements Hasher {
         int idx = 0;
         for (int y=0;y<h;y++) for (int x=0;x<w;x++) {
             int rgb = img.getRGB(x, y);
-            int gray = rgb & 0xff;
+            int r = (rgb >> 16) & 0xff;
+            int g = (rgb >> 8) & 0xff;
+            int b = rgb & 0xff;
+            int gray = (int)(0.299 * r + 0.587 * g + 0.114 * b);
             sum += gray;
             px[idx++] = gray;
         }
