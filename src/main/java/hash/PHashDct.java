@@ -12,8 +12,14 @@ public class PHashDct implements Hasher {
         int N = 32;
         double[][] vals = new double[N][N];
         for (int y=0;y<N;y++)
-            for (int x=0;x<N;x++)
-                vals[y][x] = (img.getRGB(x,y)&0xff)/255.0;
+            for (int x=0;x<N;x++) {
+                int rgb = img.getRGB(x, y);
+                int r = (rgb >> 16) & 0xff;
+                int g = (rgb >> 8) & 0xff;
+                int b = rgb & 0xff;
+                double gray = (0.299 * r + 0.587 * g + 0.114 * b) / 255.0;
+                vals[y][x] = gray;
+            }
 
         double[][] dct = dct(vals);
         double[] low = new double[64];
