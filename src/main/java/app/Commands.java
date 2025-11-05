@@ -63,10 +63,6 @@ public final class Commands {
                             .forEach(p -> {
                                 try {
                                     BufferedImage img = ImageLoader.load(p);
-                                    img = Gray.toGray(img);
-                                    // size for hasher:
-                                    img = hasher instanceof PHashDct ? Resize.resize(img, PHASH_SIZE, PHASH_SIZE)
-                                            : Resize.resize(img, DHASH_WIDTH, DHASH_HEIGHT); // dhash needs 9x8, ahash 8x8; 9x8 is safe and we only sample 8x8 inside
                                     long h = hasher.hash(img);
                                     index.add(h, p.toString());
                                     id2hash.put(p.toString(), h);
@@ -93,10 +89,8 @@ public final class Commands {
                 return CLI.Exit.RUNTIME_ERROR;
             }
         }
-        private static final int PHASH_SIZE = 32;
-        private static final int DHASH_WIDTH = 9;
-        private static final int DHASH_HEIGHT = 8;
-    }
+            // Can remove these constants
+        }
 
     @Command(
             name = "cluster",

@@ -1,8 +1,14 @@
 package hash;
+import core.Gray;
+import core.Resize;
 import java.awt.image.BufferedImage;
 
 public class PHashDct implements Hasher {
     public long hash(BufferedImage img) {
+        // Preprocess: convert to grayscale and resize
+        img = Gray.toGray(img);
+        img = Resize.resize(img, 32, 32);
+        
         int N = 32;
         double[][] vals = new double[N][N];
         for (int y=0;y<N;y++)

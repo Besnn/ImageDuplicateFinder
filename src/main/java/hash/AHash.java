@@ -1,8 +1,14 @@
 package hash;
+import core.Gray;
+import core.Resize;
 import java.awt.image.BufferedImage;
 
 public class AHash implements Hasher {
     public long hash(BufferedImage img) {
+        // Preprocess: convert to grayscale and resize
+        img = Gray.toGray(img);
+        img = Resize.resize(img, 8, 8);
+        
         int w = 8, h = 8;
         double sum = 0;
         int[] px = new int[w*h];
