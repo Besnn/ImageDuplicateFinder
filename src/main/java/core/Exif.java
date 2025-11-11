@@ -61,9 +61,9 @@ public final class Exif {
             case 2 -> flipHorizontal(src);
             case 3 -> rotate180(src);
             case 4 -> flipVertical(src);
-            case 5 -> rotate90(flipHorizontal(src));   // mirror horizontal + rotate 270
+            case 5 -> transpose(src);   // mirror horizontal + rotate 270
             case 6 -> rotate90(src);
-            case 7 -> rotate270(flipHorizontal(src));  // mirror horizontal + rotate 90
+            case 7 -> transverse(src);  // mirror horizontal + rotate 90
             case 8 -> rotate270(src);
             default -> src;
         };
@@ -102,28 +102,26 @@ public final class Exif {
         return transformAffine(src, at, src.getWidth(), src.getHeight());
     }
 
-    // Orientation 5: transpose (mirror across TL–BR)
     private static BufferedImage transpose(BufferedImage src) {
-        // Equivalent: flip horizontal then rotate 270
+        // EXIF orientation 5: flip horizontal then rotate 270° CW
         return rotate270(flipHorizontal(src));
     }
 
-    // Orientation 7: transverse (mirror across TR–BL)
     private static BufferedImage transverse(BufferedImage src) {
-        // Equivalent: flip horizontal then rotate 90
+        // EXIF orientation 7: flip horizontal then rotate 90° CW
         return rotate90(flipHorizontal(src));
     }
 
     private static BufferedImage transformAffine(BufferedImage src, AffineTransform at, int outW, int outH) {
         BufferedImage dst = new BufferedImage(outW, outH, chooseType(src));
-        AffineTransformOp op = new AffineTransformOp(at, AffineTransformOp.TYPE_BILINEAR);
+        AffineTransformOp op = new AffineTransformOp(at, AffineTransformOp.TYPE_NEAREST_NEIGHBOR);
         op.filter(src, dst);
         return dst;
     }
 
-    /** Preserve alpha if present; otherwise use 3-byte BGR. */
+    // Preserve alpha if present
     private static int chooseType(BufferedImage src) {
-        return src.getColorModel().hasAlpha() ? BufferedImage.TYPE_INT_ARGB : BufferedImage.TYPE_3BYTE_BGR;
+        return src.getColorModel().hasAlpha() ? BufferedImage.TYPE_INT_ARGB : BufferedImage.TYPE_INT_RGB;
     }
 
     /** Optional: high-quality resample helper if you later resize after EXIF fix. */
