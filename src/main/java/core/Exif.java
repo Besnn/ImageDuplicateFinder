@@ -47,8 +47,8 @@ public final class Exif {
                 if (v != null && v >= 1 && v <= 8) return v;
             }
         } catch (Exception ignore) {
-            // Non-fatal: treat as no-orientation
-            System.out.println("Failed to read EXIF orientation for " + imagePath);
+            // Non-fatal: Log to standard error and treat as no-orientation
+            System.err.println("Warning: Failed to read EXIF orientation for " + imagePath + ". Reason: " + ignore.getMessage());
         }
         return 1;
     }
@@ -113,9 +113,10 @@ public final class Exif {
     }
 
     private static BufferedImage transformAffine(BufferedImage src, AffineTransform at, int outW, int outH) {
-        BufferedImage dst = new BufferedImage(outW, outH, chooseType(src));
+        BufferedImage safeSrc = ensureTransformable(src);
+        BufferedImage dst = new BufferedImage(outW, outH, chooseType(safeSrc));
         AffineTransformOp op = new AffineTransformOp(at, AffineTransformOp.TYPE_NEAREST_NEIGHBOR);
-        op.filter(src, dst);
+        op.filter(safeSrc, dst);
         return dst;
     }
 
@@ -136,6 +137,20 @@ public final class Exif {
             g.dispose();
         }
         return dst;
+    }
+
+    private static BufferedImage ensureTransformable(BufferedImage src) {
+        if (src == null || src.getType() != BufferedImage.TYPE_CUSTOM) {
+            return src;
+        }
+        BufferedImage copy = new BufferedImage(src.getWidth(), src.getHeight(), chooseType(src));
+        Graphics2D g = copy.createGraphics();
+        try {
+            g.drawImage(src, 0, 0, null);
+        } finally {
+            g.dispose();
+        }
+        return copy;
     }
 }
 

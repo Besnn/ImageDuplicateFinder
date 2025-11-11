@@ -27,8 +27,6 @@ public class CLI implements Callable<Integer> {
     public static void main(String[] args) {
         System.out.println(java.util.Arrays.toString(args));
         CommandLine cmd = new CommandLine(new CLI());
-        cmd.addSubcommand("hash", new Commands.Hash());
-        cmd.addSubcommand("cluster", new Commands.Cluster());
         int code = cmd.execute(args);
         System.exit(code);
     }
@@ -39,4 +37,3 @@ public class CLI implements Callable<Integer> {
         public static final int RUNTIME_ERROR = 1;
     }
 }
-
