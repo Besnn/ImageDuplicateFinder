@@ -8,7 +8,7 @@ public class DHash implements Hasher {
         // Preprocess: convert to grayscale and resize
         img = Gray.toGray(img);
         img = Resize.resize(img, 9, 8);
-        
+
         int w = 9, h = 8;
         long bits = 0L;
         int i=0;
@@ -19,13 +19,13 @@ public class DHash implements Hasher {
                 int g = (rgbLeft >> 8) & 0xff;
                 int b = rgbLeft & 0xff;
                 int left = (int)(0.299 * r + 0.587 * g + 0.114 * b);
-                
+
                 int rgbRight = img.getRGB(x+1, y);
                 r = (rgbRight >> 16) & 0xff;
                 g = (rgbRight >> 8) & 0xff;
                 b = rgbRight & 0xff;
                 int right = (int)(0.299 * r + 0.587 * g + 0.114 * b);
-                
+
                 if (left > right) bits |= (1L << i);
                 i++;
             }
