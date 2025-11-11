@@ -120,7 +120,7 @@ public final class Commands {
                     int comma = line.lastIndexOf(',');
                     if (comma <= 0) continue;
                     String path = line.substring(0, comma);
-                    long hash = Long.parseUnsignedLong(line.substring(comma + 1));
+                    long hash = Long.parseUnsignedLong(line.substring(comma + 1).trim());
                     id2hash.put(path, hash);
                     idx.add(hash, path);
                 }
@@ -130,6 +130,7 @@ public final class Commands {
                 // Write clusters: clusterId,path
                 List<String> rows = new ArrayList<>();
                 for (var c : clusters) {
+                    if (c.members().size() <= 1) continue; // Only write clusters with duplicates
                     for (String member : c.members()) {
                         rows.add(c.id() + "," + member);
                     }
@@ -181,10 +182,14 @@ public final class Commands {
                 for (var e : groups.entrySet()) {
                     String cid = e.getKey();
                     List<Path> files = e.getValue();
-
+                    
+                    // Pre-compute metadata to avoid re-computing in sort
+                    Map<Path, FileMeta> metas = new HashMap<>();
+                    files.forEach(p -> metas.put(p, meta(p)));
+                    
                     // score files: bigger resolution, then size, then older mtime, then path
                     files.sort((a, b) -> {
-                        FileMeta ma = meta(a), mb = meta(b);
+                        FileMeta ma = metas.get(a), mb = metas.get(b);
                         int byPixels = Long.compare(mb.pixels, ma.pixels);
                         if (byPixels != 0) return byPixels;
                         int bySize = Long.compare(mb.size, ma.size);
@@ -193,15 +198,15 @@ public final class Commands {
                         if (byTime != 0) return byTime;
                         return a.toString().compareToIgnoreCase(b.toString());
                     });
-
-                    Path keeper = files.getFirst();
-                    FileMeta mk = meta(keeper);
+                    
+                    Path keeper = files.getFirst(); // The best file after sorting
+                    FileMeta mk = metas.get(keeper);
                     rows.add(String.format("%s,KEEP,%s,keeper(pixels=%d,size=%d,mtime=%d)",
                             cid, keeper, mk.pixels, mk.size, mk.mtime));
 
                     for (int i = 1; i < files.size(); i++) {
                         Path dupe = files.get(i);
-                        FileMeta md = meta(dupe);
+                        FileMeta md = metas.get(dupe);
                         rows.add(String.format("%s,DELETE,%s,dupe(pixels=%d,size=%d,mtime=%d)",
                                 cid, dupe, md.pixels, md.size, md.mtime));
                     }
