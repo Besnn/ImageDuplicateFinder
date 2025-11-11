@@ -12,7 +12,7 @@ import java.nio.file.Path;
 
 import org.junit.jupiter.api.io.TempDir;
 
-public class ExifTests {
+public class ExifTest {
 
     @Test
     void testNoOrientationReturnsOne() {
