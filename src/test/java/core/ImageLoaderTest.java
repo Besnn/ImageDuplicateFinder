@@ -70,14 +70,14 @@ class ImageLoaderTest {
         assertTrue(Files.exists(validImagePath), "Test file does not exist.");
 
         // Mock core.Exif.applyOrientation behavior
-        mockStatic(Exif.class);
-        when(Exif.applyOrientation(any(BufferedImage.class), eq(validImagePath))).thenReturn(mockImage);
+        try (var exifMock = mockStatic(Exif.class, CALLS_REAL_METHODS)) {
+            exifMock.when(() -> Exif.applyOrientation(any(BufferedImage.class), eq(validImagePath)))
+                    .thenReturn(mockImage);
 
-        // Act
-        BufferedImage result = ImageLoader.load(validImagePath);
+            BufferedImage result = ImageLoader.load(validImagePath);
 
-        // Assert
-        assertNotNull(result, "Expected a loaded and transformed BufferedImage object.");
-        assertSame(mockImage, result, "Expected the EXIF-transformed BufferedImage.");
+            assertNotNull(result);
+            assertSame(mockImage, result);
+        }
     }
 }

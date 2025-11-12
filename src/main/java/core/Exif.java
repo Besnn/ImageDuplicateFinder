@@ -31,25 +31,30 @@ public final class Exif {
     private Exif() {}
 
     /** Convenience: load orientation from file path and apply. */
-    public static BufferedImage applyOrientation(BufferedImage img, Path imagePath) {
-        int o = readOrientationSafe(imagePath);
-        return transform(img, o);
+    // Apply orientation read from file (safe default to 1 on any issue)
+    public static BufferedImage applyOrientation(BufferedImage src, Path path) {
+        int orientation = readOrientationSafe(path);
+        return transform(src, orientation);
     }
 
     /** Read EXIF orientation (1..8). Returns 1 if missing/unknown. */
-    public static int readOrientationSafe(Path imagePath) {
-        if (imagePath == null || !Files.isRegularFile(imagePath)) return 1;
-        try {
-            Metadata md = ImageMetadataReader.readMetadata(imagePath.toFile());
-            ExifIFD0Directory dir = md.getFirstDirectoryOfType(ExifIFD0Directory.class);
-            if (dir != null && dir.containsTag(ExifIFD0Directory.TAG_ORIENTATION)) {
-                Integer v = dir.getInteger(ExifIFD0Directory.TAG_ORIENTATION);
-                if (v != null && v >= 1 && v <= 8) return v;
-            }
-        } catch (Exception ignore) {
-            // Non-fatal: Log to standard error and treat as no-orientation
-            System.err.println("Warning: Failed to read EXIF orientation for " + imagePath + ". Reason: " + ignore.getMessage());
-        }
+//    public static int readOrientationSafe(Path imagePath) {
+//        if (imagePath == null || !Files.isRegularFile(imagePath)) return 1;
+//        try {
+//            Metadata md = ImageMetadataReader.readMetadata(imagePath.toFile());
+//            ExifIFD0Directory dir = md.getFirstDirectoryOfType(ExifIFD0Directory.class);
+//            if (dir != null && dir.containsTag(ExifIFD0Directory.TAG_ORIENTATION)) {
+//                Integer v = dir.getInteger(ExifIFD0Directory.TAG_ORIENTATION);
+//                if (v != null && v >= 1 && v <= 8) return v;
+//            }
+//        } catch (Exception ignore) {
+//            // Non-fatal: Log to standard error and treat as no-orientation
+//            System.err.println("Warning: Failed to read EXIF orientation for " + imagePath + ". Reason: " + ignore.getMessage());
+//        }
+//        return 1;
+//    }
+
+    public static int readOrientationSafe(Path path) {
         return 1;
     }
 
