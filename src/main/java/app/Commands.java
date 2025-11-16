@@ -351,9 +351,8 @@ public final class Commands {
         @Override
         public Integer call() {
             try {
-                var app = io.javalin.Javalin.create(config -> {
-                    config.staticFiles.add("/public");
-                }).start(port);
+                WebServer server = new WebServer(planCsv, clustersCsv);
+                server.start(port);
 
                 System.out.println("Web UI started at http://localhost:" + port);
                 System.out.println("Press Ctrl+C to stop");

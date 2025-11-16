@@ -3,6 +3,7 @@ package app;
 import io.javalin.Javalin;
 import io.javalin.http.staticfiles.Location;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
@@ -43,7 +44,7 @@ public class WebServer {
         return app.start(port);
     }
 
-    private List<Map<String, Object>> loadClusters() throws Exception {
+        private List<Map<String, Object>> loadClusters() throws IOException {
         if (clustersCsv == null || !Files.exists(clustersCsv)) {
             return List.of();
         }
@@ -78,6 +79,7 @@ public class WebServer {
             String line = lines.get(i);
             if (line.isBlank()) continue;
             String[] parts = line.split(",", 4);
+            if (parts.length < 3) continue;
             result.add(Map.of(
                     "clusterId", parts[0],
                     "action", parts[1],
