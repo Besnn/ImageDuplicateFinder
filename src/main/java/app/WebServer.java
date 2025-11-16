@@ -37,9 +37,15 @@ public class WebServer {
         });
 
         app.post("/api/plan/update", ctx -> {
-            // Handle plan updates
-            ctx.result("OK");
+            try {
+                List<Map<String, String>> updates = ctx.bodyAsClass(List.class);
+                savePlan(updates);
+                ctx.result("OK");
+            } catch (Exception e) {
+                ctx.status(500).result("Error: " + e.getMessage());
+            }
         });
+
 
         return app.start(port);
     }
@@ -90,4 +96,26 @@ public class WebServer {
 
         return result;
     }
+
+    private void savePlan(List<Map<String, String>> updates) throws IOException {
+        if (planCsv == null) {
+            throw new IOException("No plan file configured");
+        }
+
+        List<String> lines = new ArrayList<>();
+        lines.add("clusterId,action,path,reason");
+
+        for (Map<String, String> item : updates) {
+            String line = String.format("%s,%s,%s,%s",
+                    item.getOrDefault("clusterId", ""),
+                    item.getOrDefault("action", "keep"),
+                    item.getOrDefault("path", ""),
+                    item.getOrDefault("reason", "")
+            );
+            lines.add(line);
+        }
+
+        Files.write(planCsv, lines);
+    }
+
 }
