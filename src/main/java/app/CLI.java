@@ -14,7 +14,8 @@ import java.util.Arrays;
                 Commands.Hash.class,
                 Commands.Cluster.class,
                 Commands.Plan.class,
-                Commands.Apply.class
+                Commands.Apply.class,
+                Commands.Web.class
         }
 )
 public class CLI implements Callable<Integer> {

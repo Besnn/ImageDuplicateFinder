@@ -332,4 +332,41 @@ public final class Commands {
         }
     }
 
+    @Command(
+            name = "web",
+            description = "Start web UI for reviewing duplicates",
+            mixinStandardHelpOptions = true
+    )
+    public static class Web implements Callable<Integer> {
+
+        @Option(names = "--port", defaultValue = "7070", description = "Web server port")
+        int port;
+
+        @Option(names = "--plan", description = "Optional plan.csv to load")
+        Path planCsv;
+
+        @Option(names = "--clusters", description = "Optional clusters.csv to load")
+        Path clustersCsv;
+
+        @Override
+        public Integer call() {
+            try {
+                var app = io.javalin.Javalin.create(config -> {
+                    config.staticFiles.add("/public");
+                }).start(port);
+
+                System.out.println("Web UI started at http://localhost:" + port);
+                System.out.println("Press Ctrl+C to stop");
+
+                // Keep running
+                Thread.currentThread().join();
+                return 0;
+            } catch (Exception e) {
+                e.printStackTrace();
+                return 1;
+            }
+        }
+    }
+
+
 }

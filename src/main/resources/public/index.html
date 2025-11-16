@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Image Deduplicator</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .cluster { border: 1px solid #ccc; margin: 10px 0; padding: 10px; }
+        .image-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+        img { max-width: 100%; height: auto; }
+        .keep { border: 2px solid green; }
+        .delete { border: 2px solid red; }
+    </style>
+</head>
+<body>
+<h1>Image Deduplicator</h1>
+<div id="clusters"></div>
+
+<script>
+    fetch('/api/plan')
+        .then(r => r.json())
+        .then(data => {
+            // Render plan data
+            console.log(data);
+        });
+</script>
+</body>
+</html>
