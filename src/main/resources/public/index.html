@@ -255,6 +255,7 @@
 
 <script>
     let planData = {};
+    let clustersData = {}; // Add this
     let hasChanges = false;
 
     async function loadData() {
@@ -264,11 +265,20 @@
                 fetch('/api/clusters').then(r => r.json())
             ]);
 
+            console.log('Loaded clusters:', clusters); // Debug
+
             // Build plan map
             plan.forEach(item => {
                 const key = `${item.clusterId}:${item.path}`;
                 planData[key] = item;
             });
+
+            // Build clusters map
+            clusters.forEach(cluster => {
+                clustersData[cluster.id] = cluster.paths;
+            });
+
+            console.log('clustersData:', clustersData); // Debug
 
             renderClusters(clusters);
             updateStats();
@@ -279,6 +289,44 @@
         }
     }
 
+
+    function setAllAction(clusterId, action) {
+        const paths = clustersData[clusterId];
+        if (!paths) return;
+
+        paths.forEach(path => {
+            const key = `${clusterId}:${path}`;
+            if (!planData[key]) {
+                planData[key] = { clusterId, path, action: 'keep', reason: '' };
+            }
+            planData[key].action = action;
+            planData[key].reason = `Set all to ${action}`;
+        });
+
+        markChanged();
+        renderImages(clusterId, paths);
+        updateStats();
+    }
+
+    function autoSelect(clusterId) {
+        const paths = clustersData[clusterId];
+        if (!paths) return;
+
+        paths.forEach((path, index) => {
+            const key = `${clusterId}:${path}`;
+            if (!planData[key]) {
+                planData[key] = { clusterId, path, action: 'keep', reason: '' };
+            }
+            planData[key].action = index === 0 ? 'keep' : 'delete';
+            planData[key].reason = index === 0 ? 'First image kept' : 'Duplicate removed';
+        });
+
+        markChanged();
+        renderImages(clusterId, paths);
+        updateStats();
+    }
+
+
     function renderClusters(clusters) {
         const container = document.getElementById('clusters');
         container.innerHTML = '';
@@ -287,21 +335,25 @@
             const clusterDiv = document.createElement('div');
             clusterDiv.className = 'cluster';
             clusterDiv.innerHTML = `
-                    <div class="cluster-header">
-                        <div class="cluster-id">Cluster ${cluster.id} (${cluster.paths.length} images)</div>
-                        <div class="cluster-actions">
-                            <button class="btn btn-auto" onclick="autoSelect('${cluster.id}')">Auto Select</button>
-                            <button class="btn btn-keep-all" onclick="setAllAction('${cluster.id}', 'keep')">Keep All</button>
-                            <button class="btn btn-delete-all" onclick="setAllAction('${cluster.id}', 'delete')">Delete All</button>
-                        </div>
-                    </div>
-                    <div class="image-grid" id="cluster-${cluster.id}"></div>
-                `;
+            <div class="cluster-header">
+                <div class="cluster-id">Cluster ${cluster.id} (${cluster.paths.length} images)</div>
+                <div class="cluster-actions">
+                    <button class="btn btn-auto" onclick="autoSelect('${cluster.id}')">Auto Select</button>
+                    <button class="btn btn-keep-all" onclick="setAllAction('${cluster.id}', 'keep')">Keep All</button>
+                    <button class="btn btn-delete-all" onclick="setAllAction('${cluster.id}', 'delete')">Delete All</button>
+                </div>
+            </div>
+            <div class="image-grid" id="cluster-${cluster.id}"></div>
+        `;
             container.appendChild(clusterDiv);
 
-            renderImages(cluster.id, cluster.paths);
+            // Use clustersData instead of cluster.paths
+            const paths = clustersData[cluster.id] || cluster.paths;
+            renderImages(cluster.id, paths);
         });
     }
+
+
 
     function renderImages(clusterId, paths) {
         const grid = document.getElementById(`cluster-${clusterId}`);
@@ -355,17 +407,24 @@
         updateStats();
     }
 
-    function setAllAction(clusterId, action) {
-        Object.keys(planData).forEach(key => {
-            if (key.startsWith(clusterId + ':')) {
-                planData[key].action = action;
-                planData[key].reason = `Set all to ${action}`;
-            }
-        });
+    function setAction(clusterId, path, action) {
+        const key = `${clusterId}:${path}`;
+
+        console.log('setAction called:', {key, action, before: planData[key]}); // Debug
+
+        if (!planData[key]) {
+            planData[key] = { clusterId, path, action: 'keep', reason: '' };
+        }
+
+        planData[key].action = action;
+
+        console.log('After update:', planData[key]); // Debug
 
         markChanged();
-        loadData();
+        renderImages(clusterId, [path]);
+        updateStats();
     }
+
 
     function autoSelect(clusterId) {
         // Keep first, delete rest (simple strategy)
@@ -385,6 +444,11 @@
     async function savePlan() {
         try {
             const planArray = Object.values(planData);
+
+            console.log('planData object:', planData); // Debug: see the object
+            console.log('planArray to send:', planArray); // Debug: see the array
+            console.log('JSON string:', JSON.stringify(planArray)); // Debug: see actual JSON
+
             const response = await fetch('/api/plan/update', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -399,9 +463,11 @@
                 throw new Error('Failed to save');
             }
         } catch (error) {
+            console.error('Save error:', error);
             showError('Failed to save plan: ' + error.message);
         }
     }
+
 
     function markChanged() {
         hasChanges = true;
@@ -425,6 +491,15 @@
         errorDiv.className = 'error';
         errorDiv.textContent = message;
     }
+
+    window.debugPlanData = function() {
+        console.log('Current planData:', planData);
+        console.log('Total entries:', Object.keys(planData).length);
+        Object.entries(planData).forEach(([key, value]) => {
+            console.log(key, ':', value);
+        });
+    };
+
 
     loadData();
 </script>

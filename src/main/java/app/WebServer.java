@@ -1,12 +1,22 @@
 package app;
 
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import io.javalin.Javalin;
 import io.javalin.http.staticfiles.Location;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVPrinter;
+import org.apache.commons.csv.CSVRecord;
+//import org.apache.commons.csv.*;
+
 
 import java.io.IOException;
+import java.lang.reflect.Type;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
+
 
 public class WebServer {
 
@@ -38,13 +48,27 @@ public class WebServer {
 
         app.post("/api/plan/update", ctx -> {
             try {
-                List<Map<String, String>> updates = ctx.bodyAsClass(List.class);
+                String body = ctx.body();
+                System.out.println("Received body: " + body); // Debug log
+
+                Gson gson = new Gson();
+                Type type = new TypeToken<List<Map<String, String>>>(){}.getType();
+                List<Map<String, String>> updates = gson.fromJson(ctx.body(), type);
+
+                System.out.println("Parsed " + updates.size() + " updates"); // Debug log
+
                 savePlan(updates);
+                System.out.println("Saved to: " + planCsv); // Debug log
+
                 ctx.result("OK");
             } catch (Exception e) {
+                e.printStackTrace(); // Print full stack trace
                 ctx.status(500).result("Error: " + e.getMessage());
             }
         });
+
+
+
 
 
         return app.start(port);
@@ -73,49 +97,48 @@ public class WebServer {
         return result;
     }
 
+    private void savePlan(List<Map<String, String>> updates) throws IOException {
+        try (var writer = Files.newBufferedWriter(planCsv);
+             var csv = new CSVPrinter(writer, CSVFormat.DEFAULT)) {
+
+            csv.printRecord("clusterId", "action", "path", "reason");
+
+            for (Map<String, String> item : updates) {
+                csv.printRecord(
+                        item.getOrDefault("clusterId", ""),
+                        item.getOrDefault("action", "keep"),
+                        item.getOrDefault("path", ""),
+                        item.getOrDefault("reason", "")
+                );
+            }
+        }
+    }
+
     private List<Map<String, String>> loadPlan() throws Exception {
         if (planCsv == null || !Files.exists(planCsv)) {
-            return List.of();
+            return new ArrayList<>();
         }
 
         List<Map<String, String>> result = new ArrayList<>();
-        List<String> lines = Files.readAllLines(planCsv);
 
-        for (int i = 1; i < lines.size(); i++) { // Skip header
-            String line = lines.get(i);
-            if (line.isBlank()) continue;
-            String[] parts = line.split(",", 4);
-            if (parts.length < 3) continue;
-            result.add(Map.of(
-                    "clusterId", parts[0],
-                    "action", parts[1],
-                    "path", parts[2],
-                    "reason", parts.length > 3 ? parts[3] : ""
-            ));
+        try (var reader = Files.newBufferedReader(planCsv);
+             var csv = new CSVParser(reader, CSVFormat.DEFAULT.withFirstRecordAsHeader())) {
+
+            for (CSVRecord record : csv) {
+                Map<String, String> item = new HashMap<>();
+                item.put("clusterId", record.get(0));
+                item.put("action", record.get(1));
+                item.put("path", record.get(2));
+                item.put("reason", record.size() > 3 ? record.get(3) : "");
+                result.add(item);
+            }
         }
 
         return result;
     }
 
-    private void savePlan(List<Map<String, String>> updates) throws IOException {
-        if (planCsv == null) {
-            throw new IOException("No plan file configured");
-        }
 
-        List<String> lines = new ArrayList<>();
-        lines.add("clusterId,action,path,reason");
 
-        for (Map<String, String> item : updates) {
-            String line = String.format("%s,%s,%s,%s",
-                    item.getOrDefault("clusterId", ""),
-                    item.getOrDefault("action", "keep"),
-                    item.getOrDefault("path", ""),
-                    item.getOrDefault("reason", "")
-            );
-            lines.add(line);
-        }
 
-        Files.write(planCsv, lines);
-    }
 
 }
