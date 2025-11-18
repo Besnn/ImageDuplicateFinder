@@ -117,28 +117,48 @@ public class WebServer {
         return app.start(port);
     }
 
-        private List<Map<String, Object>> loadClusters() throws IOException {
+    private List<Map<String, Object>> loadClusters() throws IOException {
         if (clustersCsv == null || !Files.exists(clustersCsv)) {
             return List.of();
         }
 
         List<Map<String, Object>> result = new ArrayList<>();
-        Map<String, List<String>> groups = new LinkedHashMap<>();
+        Map<String, List<Map<String, Object>>> groups = new LinkedHashMap<>();
 
         for (String line : Files.readAllLines(clustersCsv)) {
             if (line.isBlank()) continue;
             int c = line.indexOf(',');
             String cid = line.substring(0, c);
             String path = line.substring(c + 1);
-            groups.computeIfAbsent(cid, k -> new ArrayList<>()).add(path);
+
+            // Get file metadata
+            Map<String, Object> fileInfo = new HashMap<>();
+            fileInfo.put("path", path);
+
+            try {
+                Path filePath = Path.of(path);
+                if (Files.exists(filePath)) {
+                    fileInfo.put("size", Files.size(filePath));
+                    fileInfo.put("modified", Files.getLastModifiedTime(filePath).toMillis());
+                } else {
+                    fileInfo.put("size", 0L);
+                    fileInfo.put("modified", 0L);
+                }
+            } catch (Exception e) {
+                fileInfo.put("size", 0L);
+                fileInfo.put("modified", 0L);
+            }
+
+            groups.computeIfAbsent(cid, k -> new ArrayList<>()).add(fileInfo);
         }
 
-        groups.forEach((cid, paths) -> {
-            result.add(Map.of("id", cid, "paths", paths));
+        groups.forEach((cid, files) -> {
+            result.add(Map.of("id", cid, "files", files));
         });
 
         return result;
     }
+
 
     private void savePlan(List<Map<String, String>> updates) throws IOException {
         try (var writer = Files.newBufferedWriter(planCsv);

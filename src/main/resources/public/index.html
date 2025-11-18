@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
     <title>Image Duplicate Finder</title>
     <style>
         * {
@@ -232,6 +233,25 @@
         .btn-save:hover {
             background: #F57C00;
         }
+
+        .original-badge {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: #2196F3; /* Blue background */
+            color: white; /* White text */
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: bold;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); /* A generic darker shadow */
+            z-index: 10;
+            max-width: 200px;
+            text-overflow: ellipsis;
+            overflow: hidden;
+            white-space: nowrap;
+        }
+
     </style>
 </head>
 <body>
@@ -265,20 +285,16 @@
                 fetch('/api/clusters').then(r => r.json())
             ]);
 
-            console.log('Loaded clusters:', clusters); // Debug
-
             // Build plan map
             plan.forEach(item => {
                 const key = `${item.clusterId}:${item.path}`;
                 planData[key] = item;
             });
 
-            // Build clusters map
+            // Build clusters map with file metadata
             clusters.forEach(cluster => {
-                clustersData[cluster.id] = cluster.paths;
+                clustersData[cluster.id] = cluster.files || cluster.paths?.map(p => ({ path: p, size: 0, modified: 0 }));
             });
-
-            console.log('clustersData:', clustersData); // Debug
 
             renderClusters(clusters);
             updateStats();
@@ -290,11 +306,13 @@
     }
 
 
-    function setAllAction(clusterId, action) {
-        const paths = clustersData[clusterId];
-        if (!paths) return;
 
-        paths.forEach(path => {
+    function setAllAction(clusterId, action) {
+        const files = clustersData[clusterId];
+        if (!files) return;
+
+        files.forEach(file => {
+            const path = file.path || file;
             const key = `${clusterId}:${path}`;
             if (!planData[key]) {
                 planData[key] = { clusterId, path, action: 'keep', reason: '' };
@@ -304,88 +322,38 @@
         });
 
         markChanged();
-        renderImages(clusterId, paths);
+        renderImages(clusterId, files);
         updateStats();
     }
 
     function autoSelect(clusterId) {
-        const paths = clustersData[clusterId];
-        if (!paths) return;
+        const files = clustersData[clusterId];
+        if (!files) return;
 
-        paths.forEach((path, index) => {
+        // Find largest file
+        let largestIndex = 0;
+        let maxSize = 0;
+        files.forEach((file, index) => {
+            if (file.size > maxSize) {
+                maxSize = file.size;
+                largestIndex = index;
+            }
+        });
+
+        files.forEach((file, index) => {
+            const path = file.path || file;
             const key = `${clusterId}:${path}`;
             if (!planData[key]) {
                 planData[key] = { clusterId, path, action: 'keep', reason: '' };
             }
-            planData[key].action = index === 0 ? 'keep' : 'delete';
-            planData[key].reason = index === 0 ? 'First image kept' : 'Duplicate removed';
+            planData[key].action = index === largestIndex ? 'keep' : 'delete';
+            planData[key].reason = index === largestIndex ? 'Largest file kept' : 'Smaller duplicate removed';
         });
 
         markChanged();
-        renderImages(clusterId, paths);
+        renderImages(clusterId, files);
         updateStats();
     }
-
-
-    function renderClusters(clusters) {
-        const container = document.getElementById('clusters');
-        container.innerHTML = '';
-
-        clusters.forEach(cluster => {
-            const clusterDiv = document.createElement('div');
-            clusterDiv.className = 'cluster';
-            clusterDiv.innerHTML = `
-            <div class="cluster-header">
-                <div class="cluster-id">Cluster ${cluster.id} (${cluster.paths.length} images)</div>
-                <div class="cluster-actions">
-                    <button class="btn btn-auto" onclick="autoSelect('${cluster.id}')">Auto Select</button>
-                    <button class="btn btn-keep-all" onclick="setAllAction('${cluster.id}', 'keep')">Keep All</button>
-                    <button class="btn btn-delete-all" onclick="setAllAction('${cluster.id}', 'delete')">Delete All</button>
-                </div>
-            </div>
-            <div class="image-grid" id="cluster-${cluster.id}"></div>
-        `;
-            container.appendChild(clusterDiv);
-
-            // Use clustersData instead of cluster.paths
-            const paths = clustersData[cluster.id] || cluster.paths;
-            renderImages(cluster.id, paths);
-        });
-    }
-
-
-
-    function renderImages(clusterId, paths) {
-        const grid = document.getElementById(`cluster-${clusterId}`);
-        grid.innerHTML = '';
-
-        paths.forEach(path => {
-            const key = `${clusterId}:${path}`;
-            const item = planData[key] || { action: 'keep', reason: '' };
-
-            const imgDiv = document.createElement('div');
-            imgDiv.className = `image-item ${item.action}`;
-            imgDiv.onclick = () => toggleAction(clusterId, path);
-
-            // Encode the path for URL
-            const encodedPath = encodeURIComponent(path);
-
-            imgDiv.innerHTML = `
-                <div class="image-wrapper">
-                    <img src="/api/image?path=${encodedPath}" alt="${path}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22%3E%3Ctext x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23999%22%3ENo Preview%3C/text%3E%3C/svg%3E'">
-                </div>
-                <div class="image-info">
-                    <div class="image-path">${path.split(/[\\/]/).pop()}</div>
-                    <div class="image-actions">
-                        <span class="action-badge ${item.action}">${item.action.toUpperCase()}</span>
-                        ${item.reason ? `<span class="reason">${item.reason}</span>` : ''}
-                    </div>
-                </div>
-            `;
-            grid.appendChild(imgDiv);
-        });
-    }
-
 
     function toggleAction(clusterId, path) {
         const key = `${clusterId}:${path}`;
@@ -397,12 +365,95 @@
 
         markChanged();
 
-        // Use clustersData instead of trying to reconstruct paths
-        const paths = clustersData[clusterId];
-        if (paths) {
-            renderImages(clusterId, paths);
+        const files = clustersData[clusterId];
+        if (files) {
+            renderImages(clusterId, files);
         }
         updateStats();
+    }
+
+    function renderClusters(clusters) {
+        const container = document.getElementById('clusters');
+        container.innerHTML = '';
+
+        clusters.forEach(cluster => {
+            const files = clustersData[cluster.id] || [];
+            const clusterDiv = document.createElement('div');
+            clusterDiv.className = 'cluster';
+            clusterDiv.innerHTML = `
+            <div class="cluster-header">
+                <div class="cluster-id">Cluster ${cluster.id} (${files.length} images)</div>
+                <div class="cluster-actions">
+                    <button class="btn btn-auto" onclick="autoSelect('${cluster.id}')">Auto Select</button>
+                    <button class="btn btn-keep-all" onclick="setAllAction('${cluster.id}', 'keep')">Keep All</button>
+                    <button class="btn btn-delete-all" onclick="setAllAction('${cluster.id}', 'delete')">Delete All</button>
+                </div>
+            </div>
+            <div class="image-grid" id="cluster-${cluster.id}"></div>
+        `;
+            container.appendChild(clusterDiv);
+
+            renderImages(cluster.id, files);
+        });
+    }
+
+
+
+
+    function renderImages(clusterId, files) {
+        const grid = document.getElementById(`cluster-${clusterId}`);
+        grid.innerHTML = '';
+
+        // Determine likely original (largest file size)
+        let likelyOriginalIndex = 0;
+        let maxSize = 0;
+        let originalReason = '';
+
+        files.forEach((file, index) => {
+            const size = file.size || 0;
+            if (size > maxSize) {
+                maxSize = size;
+                likelyOriginalIndex = index;
+            }
+        });
+
+        if (maxSize > 0) {
+            const sizeMB = (maxSize / 1024 / 1024).toFixed(2);
+            if (sizeMB === '0.00') {
+                const sizeKB = (maxSize / 1024).toFixed(0);
+                originalReason = `Largest file (${sizeKB} KB)`;
+            } else {
+                originalReason = `Largest file (${sizeMB} MB)`;
+            }
+        }
+
+        files.forEach((file, index) => {
+            const path = file.path || file;
+            const key = `${clusterId}:${path}`;
+            const item = planData[key] || { action: 'keep', reason: '' };
+
+            const imgDiv = document.createElement('div');
+            imgDiv.className = `image-item ${item.action}`;
+            imgDiv.onclick = () => toggleAction(clusterId, path);
+
+            const encodedPath = encodeURIComponent(path);
+            const isLikelyOriginal = index === likelyOriginalIndex && maxSize > 0;
+
+            imgDiv.innerHTML = `
+            <div class="image-wrapper">
+                ${isLikelyOriginal ? `<div class="original-badge">⭐ ${originalReason}</div>` : ''}
+                <img src="/api/image?path=${encodedPath}" alt="${path}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22%3E%3Ctext x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23999%22%3ENo Preview%3C/text%3E%3C/svg%3E'">
+            </div>
+            <div class="image-info">
+                <div class="image-path">${path.split(/[\\/]/).pop()}</div>
+                <div class="image-actions">
+                    <span class="action-badge ${item.action}">${item.action.toUpperCase()}</span>
+                    ${item.reason ? `<span class="reason">${item.reason}</span>` : ''}
+                </div>
+            </div>
+        `;
+            grid.appendChild(imgDiv);
+        });
     }
 
 
@@ -422,22 +473,6 @@
         markChanged();
         renderImages(clusterId, [path]);
         updateStats();
-    }
-
-
-    function autoSelect(clusterId) {
-        // Keep first, delete rest (simple strategy)
-        let first = true;
-        Object.keys(planData).forEach(key => {
-            if (key.startsWith(clusterId + ':')) {
-                planData[key].action = first ? 'keep' : 'delete';
-                planData[key].reason = first ? 'First image kept' : 'Duplicate removed';
-                first = false;
-            }
-        });
-
-        markChanged();
-        loadData();
     }
 
     async function savePlan() {
@@ -498,7 +533,6 @@
             console.log(key, ':', value);
         });
     };
-
 
     loadData();
 </script>
