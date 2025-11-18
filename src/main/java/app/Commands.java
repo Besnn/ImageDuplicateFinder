@@ -129,14 +129,18 @@ public final class Commands {
 
                 // Write clusters: clusterId,path
                 List<String> rows = new ArrayList<>();
+                int totalClusters = clusters.size();
+                int duplicateClusters = 0;
                 for (var c : clusters) {
-                    if (c.members().size() <= 1) continue; // Only write clusters with duplicates
+                    if (c.members().size() <= 1) continue;
+                    duplicateClusters++;// Only write clusters with duplicates
                     for (String member : c.members()) {
                         rows.add(c.id() + "," + member);
                     }
                 }
                 Files.write(out, rows);
-                System.out.printf("Clusters: %d written -> %s%n", clusters.size(), out);
+                System.out.printf("Total clusters: %d, with duplicates: %d -> %s%n",
+                        totalClusters, duplicateClusters, out);
                 return CLI.Exit.OK;
 
             } catch (NoSuchFileException e) {
@@ -366,6 +370,48 @@ public final class Commands {
             }
         }
     }
+
+    // Static wrapper methods for WebServer
+    public static void hashImages(String inputDir, String outputCsv) throws Exception {
+        Hash hashCmd = new Hash();
+        hashCmd.root = Path.of(inputDir);
+        hashCmd.algo = "phash";
+        hashCmd.out = Path.of(outputCsv);
+
+        int result = hashCmd.call();
+        if (result != CLI.Exit.OK) {
+            throw new RuntimeException("Hashing failed with exit code: " + result);
+        }
+    }
+
+    public static void clusterImages(String hashCsv, String clustersCsv, double threshold) throws Exception {
+        // Convert threshold to radius (approximate)
+        // threshold 0.95 ≈ 3 bit differences out of 64 bits
+        int radius = (int) Math.round((1.0 - threshold) * 64);
+
+        Cluster clusterCmd = new Cluster();
+        clusterCmd.indexCsv = Path.of(hashCsv);
+        clusterCmd.radius = radius;
+        clusterCmd.out = Path.of(clustersCsv);
+
+        int result = clusterCmd.call();
+        if (result != CLI.Exit.OK) {
+            throw new RuntimeException("Clustering failed with exit code: " + result);
+        }
+    }
+
+    public static void generatePlan(String clustersCsv, String planCsv) throws Exception {
+        Plan planCmd = new Plan();
+        planCmd.clustersCsv = Path.of(clustersCsv);
+        planCmd.out = Path.of(planCsv);
+
+        int result = planCmd.call();
+        if (result != CLI.Exit.OK) {
+            throw new RuntimeException("Plan generation failed with exit code: " + result);
+        }
+    }
+
+
 
 
 }

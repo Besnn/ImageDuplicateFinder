@@ -1,5 +1,6 @@
 package app;
 
+import java.util.concurrent.ConcurrentHashMap;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import io.javalin.Javalin;
@@ -8,6 +9,7 @@ import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVPrinter;
 import org.apache.commons.csv.CSVRecord;
+
 //import org.apache.commons.csv.*;
 
 
@@ -16,12 +18,23 @@ import java.lang.reflect.Type;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 
 
 public class WebServer {
 
-    private final Path planCsv;
-    private final Path clustersCsv;
+    private Path planCsv;
+    private Path clustersCsv;
+    private final Map<String, JobStatus> jobs = new ConcurrentHashMap<>();
+    private static class JobStatus {
+        String status; // "running", "completed", "failed"
+        int progress; // 0-100
+        String message;
+        String error;
+        String result;
+    }
+
 
     public WebServer(Path planCsv, Path clustersCsv) {
         this.planCsv = planCsv;
@@ -37,7 +50,115 @@ public class WebServer {
             });
         });
 
-        // API endpoints
+        app.post("/api/process", ctx -> {
+            String directory = ctx.queryParam("directory");
+            double threshold = Double.parseDouble(ctx.queryParamAsClass("threshold", String.class).getOrDefault("0.95"));
+
+            if (directory == null || directory.isEmpty()) {
+                ctx.status(400).result("Missing directory parameter");
+                return;
+            }
+
+            String jobId = UUID.randomUUID().toString();
+            JobStatus job = new JobStatus();
+            job.status = "running";
+            job.progress = 0;
+            job.message = "Starting...";
+            jobs.put(jobId, job);
+
+            CompletableFuture.runAsync(() -> {
+                try {
+                    Path dirPath = Path.of(directory);
+                    if (!Files.exists(dirPath)) {
+                        job.status = "failed";
+                        job.error = "Directory does not exist";
+                        return;
+                    }
+
+                    // Step 1: Hash images
+                    job.progress = 10;
+                    job.message = "Hashing images...";
+
+                    Path hashFile = dirPath.resolve("hashes.csv");
+                    Commands.hashImages(directory, hashFile.toString());
+
+                    job.progress = 40;
+                    job.message = "Finding duplicates...";
+
+                    // Step 2: Cluster
+                    Path clustersFile = dirPath.resolve("clusters.csv");
+                    Commands.clusterImages(hashFile.toString(), clustersFile.toString(), threshold);
+
+                    job.progress = 70;
+                    job.message = "Generating plan...";
+
+                    // Step 3: Generate plan
+                    Path planFile = dirPath.resolve("plan.csv");
+                    Commands.generatePlan(clustersFile.toString(), planFile.toString());
+
+                    // Verify files exist and have content
+                    if (!Files.exists(clustersFile) || Files.size(clustersFile) == 0) {
+                        job.status = "failed";
+                        job.error = "Clusters file is empty or missing";
+                        return;
+                    }
+
+                    if (!Files.exists(planFile) || Files.size(planFile) == 0) {
+                        job.status = "failed";
+                        job.error = "Plan file is empty or missing";
+                        return;
+                    }
+
+                    job.progress = 90;
+                    job.message = "Finalizing...";
+
+                    // Update server's file references ONLY after files are confirmed to exist
+                    this.clustersCsv = clustersFile;
+                    this.planCsv = planFile;
+
+                    job.status = "completed";
+                    job.progress = 100;
+                    job.message = "Complete";
+                    job.result = clustersFile.toString();
+
+                } catch (Exception e) {
+                    job.status = "failed";
+                    job.error = e.getMessage();
+                    e.printStackTrace();
+                }
+            });
+
+
+
+
+            ctx.json(Map.of("jobId", jobId, "status", "started"));
+        });
+
+        app.get("/api/job/{jobId}", ctx -> {
+            String jobId = ctx.pathParam("jobId");
+            JobStatus job = jobs.get(jobId);
+
+            if (job == null) {
+                ctx.status(404).json(Map.of("error", "Job not found"));
+                return;
+            }
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("status", job.status);
+            response.put("progress", job.progress);
+            response.put("message", job.message);
+
+            if (job.error != null) {
+                response.put("error", job.error);
+            }
+            if (job.result != null) {
+                response.put("result", job.result);
+            }
+
+            ctx.json(response);
+        });
+
+
         app.get("/api/clusters", ctx -> {
             ctx.json(loadClusters());
         });
@@ -182,6 +303,11 @@ public class WebServer {
             return new ArrayList<>();
         }
 
+        List<String> lines = Files.readAllLines(planCsv);
+        if (lines.isEmpty() || lines.size() == 1) { // Only header or empty
+            return new ArrayList<>();
+        }
+
         List<Map<String, String>> result = new ArrayList<>();
 
         try (var reader = Files.newBufferedReader(planCsv);
@@ -189,16 +315,17 @@ public class WebServer {
 
             for (CSVRecord record : csv) {
                 Map<String, String> item = new HashMap<>();
-                item.put("clusterId", record.get(0));
-                item.put("action", record.get(1));
-                item.put("path", record.get(2));
-                item.put("reason", record.size() > 3 ? record.get(3) : "");
+                item.put("clusterId", record.get("clusterId"));
+                item.put("action", record.get("action"));
+                item.put("path", record.get("path"));
+                item.put("reason", record.size() > 3 ? record.get("reason") : "");
                 result.add(item);
             }
         }
 
         return result;
     }
+
 
 
 

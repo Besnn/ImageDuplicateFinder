@@ -267,7 +267,31 @@
 
 <div id="error"></div>
 <div id="loading" class="loading">Loading clusters...</div>
-<div id="clusters"></div>
+<div id="setupPanel" style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+    <h2>Setup</h2>
+    <div style="margin-bottom: 15px;">
+        <label>Directory to scan:</label>
+        <input type="text" id="directoryInput" style="width: 100%; padding: 8px; margin-top: 5px;" placeholder="C:\Pictures">
+    </div>
+    <div style="margin-bottom: 15px;">
+        <label>Similarity threshold: <span id="thresholdValue">0.95</span></label>
+        <input type="range" id="thresholdInput" value="0.95" min="0.5" max="1.0" step="0.01" style="width: 100%; margin-top: 5px;" oninput="document.getElementById('thresholdValue').textContent = this.value">
+    </div>
+    <div style="display: flex; gap: 10px;">
+        <button class="btn" onclick="processImages()" style="background: #2196F3; color: white; font-weight: bold;">Process Images</button>
+    </div>
+    <div id="progressPanel" style="margin-top: 15px; display: none;">
+        <div style="background: #f0f0f0; height: 20px; border-radius: 10px; overflow: hidden;">
+            <div id="progressBar" style="background: #2196F3; height: 100%; width: 0%; transition: width 0.3s;"></div>
+        </div>
+        <div id="progressText" style="margin-top: 5px; color: #666; font-size: 12px;"></div>
+    </div>
+</div>
+
+
+<div id="resultsPanel" style="display: none;">
+    <div id="clusters"></div>
+</div>
 
 <div id="savePanel" class="save-panel">
     <button class="btn btn-save" onclick="savePlan()">Save Changes</button>
@@ -280,30 +304,48 @@
 
     async function loadData() {
         try {
+            document.getElementById('loading').style.display = 'block';
+
             const [plan, clusters] = await Promise.all([
                 fetch('/api/plan').then(r => r.json()),
                 fetch('/api/clusters').then(r => r.json())
             ]);
 
             // Build plan map
+            planData = {};
             plan.forEach(item => {
                 const key = `${item.clusterId}:${item.path}`;
                 planData[key] = item;
             });
 
             // Build clusters map with file metadata
+            clustersData = {};
             clusters.forEach(cluster => {
                 clustersData[cluster.id] = cluster.files || cluster.paths?.map(p => ({ path: p, size: 0, modified: 0 }));
             });
 
             renderClusters(clusters);
+
+            // Auto-generate initial plan if no plan exists
+            if (Object.keys(planData).length === 0 && clusters.length > 0) {
+                clusters.forEach(cluster => {
+                    autoSelect(cluster.id);
+                });
+                // Automatically save the generated plan
+                await savePlan();
+            }
+
             updateStats();
             document.getElementById('loading').style.display = 'none';
+            document.getElementById('resultsPanel').style.display = 'block';
+
         } catch (error) {
             showError('Failed to load data: ' + error.message);
             document.getElementById('loading').style.display = 'none';
         }
     }
+
+
 
 
 
@@ -502,6 +544,76 @@
         }
     }
 
+    async function processImages() {
+        const directory = document.getElementById('directoryInput').value;
+        const threshold = document.getElementById('thresholdInput').value;
+
+        if (!directory) {
+            alert('Please enter a directory path');
+            return;
+        }
+
+        try {
+            showProgress('Starting image processing...');
+
+            // Start the combined process
+            const response = await fetch(`/api/process?directory=${encodeURIComponent(directory)}&threshold=${threshold}`, {
+                method: 'POST'
+            });
+
+            if (!response.ok) throw new Error('Processing failed');
+
+            const result = await response.json();
+            await pollJob(result.jobId);
+
+            // Load the results immediately after completion
+            hideProgress();
+            await loadData();
+
+            alert('Processing complete! Results loaded.');
+
+        } catch (error) {
+            showError('Processing failed: ' + error.message);
+            hideProgress();
+        }
+    }
+
+
+    async function pollJob(jobId) {
+        while (true) {
+            const response = await fetch(`/api/job/${jobId}`);
+            const status = await response.json();
+
+            if (status.status === 'completed') {
+                hideProgress();
+                return status.result;
+            } else if (status.status === 'failed') {
+                throw new Error(status.error || 'Job failed');
+            }
+
+            const progress = status.progress || 0;
+            const message = status.message || 'Processing...';
+            updateProgress(progress, message);
+
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
+    }
+
+
+    function showProgress(text) {
+        const panel = document.getElementById('progressPanel');
+        panel.style.display = 'block';
+        updateProgress(0, text);
+    }
+
+    function updateProgress(percent, text) {
+        document.getElementById('progressBar').style.width = percent + '%';
+        document.getElementById('progressText').textContent = text;
+    }
+
+    function hideProgress() {
+        document.getElementById('progressPanel').style.display = 'none';
+    }
 
     function markChanged() {
         hasChanges = true;
