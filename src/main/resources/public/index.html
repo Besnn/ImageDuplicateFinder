@@ -287,6 +287,14 @@
         <div id="progressText" style="margin-top: 5px; color: #666; font-size: 12px;"></div>
     </div>
 </div>
+<div style="margin-bottom: 15px;">
+    <label>Hash algorithm:</label>
+    <select id="algoInput" style="width: 100%; padding: 8px; margin-top: 5px;">
+        <option value="phash" selected>PHash (Perceptual Hash - Recommended)</option>
+        <option value="dhash">DHash (Difference Hash - Fast)</option>
+        <option value="ahash">AHash (Average Hash - Fastest)</option>
+    </select>
+</div>
 
 
 <div id="resultsPanel" style="display: none;">
@@ -547,6 +555,7 @@
     async function processImages() {
         const directory = document.getElementById('directoryInput').value;
         const threshold = document.getElementById('thresholdInput').value;
+        const algo = document.getElementById('algoInput').value;
 
         if (!directory) {
             alert('Please enter a directory path');
@@ -556,8 +565,7 @@
         try {
             showProgress('Starting image processing...');
 
-            // Start the combined process
-            const response = await fetch(`/api/process?directory=${encodeURIComponent(directory)}&threshold=${threshold}`, {
+            const response = await fetch(`/api/process?directory=${encodeURIComponent(directory)}&threshold=${threshold}&algo=${algo}`, {
                 method: 'POST'
             });
 
@@ -566,7 +574,6 @@
             const result = await response.json();
             await pollJob(result.jobId);
 
-            // Load the results immediately after completion
             hideProgress();
             await loadData();
 
@@ -577,6 +584,7 @@
             hideProgress();
         }
     }
+
 
 
     async function pollJob(jobId) {

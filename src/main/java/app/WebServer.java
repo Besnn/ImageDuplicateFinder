@@ -53,6 +53,7 @@ public class WebServer {
         app.post("/api/process", ctx -> {
             String directory = ctx.queryParam("directory");
             double threshold = Double.parseDouble(ctx.queryParamAsClass("threshold", String.class).getOrDefault("0.95"));
+            String algo = ctx.queryParamAsClass("algo", String.class).getOrDefault("phash");
 
             if (directory == null || directory.isEmpty()) {
                 ctx.status(400).result("Missing directory parameter");
@@ -77,10 +78,10 @@ public class WebServer {
 
                     // Step 1: Hash images
                     job.progress = 10;
-                    job.message = "Hashing images...";
+                    job.message = "Hashing images with " + algo.toUpperCase() + "...";
 
                     Path hashFile = dirPath.resolve("hashes.csv");
-                    Commands.hashImages(directory, hashFile.toString());
+                    Commands.hashImages(directory, hashFile.toString(), algo);
 
                     job.progress = 40;
                     job.message = "Finding duplicates...";

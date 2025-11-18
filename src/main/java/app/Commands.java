@@ -372,10 +372,10 @@ public final class Commands {
     }
 
     // Static wrapper methods for WebServer
-    public static void hashImages(String inputDir, String outputCsv) throws Exception {
+    public static void hashImages(String inputDir, String outputCsv, String algo) throws Exception {
         Hash hashCmd = new Hash();
         hashCmd.root = Path.of(inputDir);
-        hashCmd.algo = "phash";
+        hashCmd.algo = algo;
         hashCmd.out = Path.of(outputCsv);
 
         int result = hashCmd.call();
@@ -383,6 +383,7 @@ public final class Commands {
             throw new RuntimeException("Hashing failed with exit code: " + result);
         }
     }
+
 
     public static void clusterImages(String hashCsv, String clustersCsv, double threshold) throws Exception {
         // Convert threshold to radius (approximate)
@@ -412,6 +413,7 @@ public final class Commands {
     }
 
 
-
+//FIXME:
+// auto-keep file that is likely to be original
 
 }
