@@ -393,19 +393,14 @@
 
         markChanged();
 
-        // Re-render just this cluster
-        const cluster = Array.from(document.querySelectorAll('.cluster')).find(c =>
-            c.querySelector('.cluster-id').textContent.includes(clusterId)
-        );
-        if (cluster) {
-            const paths = Array.from(cluster.querySelectorAll('.image-path')).map(p => {
-                const fullPath = Object.keys(planData).find(k => k.endsWith(':' + p.textContent) && k.startsWith(clusterId + ':'));
-                return fullPath ? fullPath.split(':')[1] : null;
-            }).filter(Boolean);
+        // Use clustersData instead of trying to reconstruct paths
+        const paths = clustersData[clusterId];
+        if (paths) {
             renderImages(clusterId, paths);
         }
         updateStats();
     }
+
 
     function setAction(clusterId, path, action) {
         const key = `${clusterId}:${path}`;
