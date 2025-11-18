@@ -46,6 +46,49 @@ public class WebServer {
             ctx.json(loadPlan());
         });
 
+        app.get("/api/image", ctx -> {
+            String pathParam = ctx.queryParam("path");
+
+            if (pathParam == null || pathParam.isEmpty()) {
+                ctx.status(400).result("Missing path parameter");
+                return;
+            }
+
+            try {
+                Path imagePath = Path.of(pathParam);
+
+                if (!Files.exists(imagePath) || !Files.isRegularFile(imagePath)) {
+                    ctx.status(404).result("Image not found");
+                    return;
+                }
+
+                // Determine content-type based on file extension
+                String fileName = imagePath.getFileName().toString().toLowerCase();
+                String contentType;
+                if (fileName.endsWith(".png")) {
+                    contentType = "image/png";
+                } else if (fileName.endsWith(".jpg") || fileName.endsWith(".jpeg")) {
+                    contentType = "image/jpeg";
+                } else if (fileName.endsWith(".gif")) {
+                    contentType = "image/gif";
+                } else if (fileName.endsWith(".bmp")) {
+                    contentType = "image/bmp";
+                } else if (fileName.endsWith(".webp")) {
+                    contentType = "image/webp";
+                } else {
+                    contentType = "application/octet-stream";
+                }
+
+                ctx.contentType(contentType);
+                ctx.result(Files.readAllBytes(imagePath));
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                ctx.status(500).result("Error loading image: " + e.getMessage());
+            }
+        });
+
+
         app.post("/api/plan/update", ctx -> {
             try {
                 String body = ctx.body();
