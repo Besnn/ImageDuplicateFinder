@@ -1,0 +1,10 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Run 'hash' with AHash" type="Application" factoryName="Application">
+    <option name="MAIN_CLASS_NAME" value="Main" />
+    <module name="ImageDuplicateFinder" />
+    <option name="PROGRAM_PARAMETERS" value="hash C:\Users\besnn\projects\ImageDuplicateFinder\fixtures --algo ahash --out tmp/index.csv" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>
