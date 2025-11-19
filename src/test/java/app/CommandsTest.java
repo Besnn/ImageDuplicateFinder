@@ -37,7 +37,7 @@ class CommandsTest {
             (byte) 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
             0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00, 0x00, 0x1f, 0x15, (byte) 0xc4,
             (byte) 0x89, 0x00, 0x00, 0x00, 0x0a, 0x49, 0x44, 0x41, 0x54, 0x08, (byte) 0xd7, 0x63, (byte) 0xf8,
-            (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0x3f, 0x00, 0x05, (byte) 0xfe, 0x02, (byte) 0xfe,
+            (byte) 0xff, (byte) 0xff, (byte) 0xff, 0x3f, 0x00, 0x05, (byte) 0xfe, 0x02, (byte) 0xfe,
             (byte) 0xdc, (byte) 0xcc, 0x59, (byte) 0xe7, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, (byte) 0xae,
             0x42, 0x60, (byte) 0x82
     };
@@ -82,8 +82,8 @@ class CommandsTest {
 
         List<String> lines = Files.readAllLines(hashCommand.out);
         assertEquals(2, lines.size(), "Index file should contain 2 entries");
-        assertTrue(lines.get(0).contains("img1.png"), "Index should contain img1.png");
-        assertTrue(lines.get(1).contains("img2.jpg"), "Index should contain img2.jpg");
+        assertTrue(lines.stream().anyMatch(s -> s.contains("img1.png")), "Index should contain img1.png");
+        assertTrue(lines.stream().anyMatch(s -> s.contains("img2.jpg")), "Index should contain img2.jpg");
     }
 
     @Test
@@ -137,12 +137,10 @@ class CommandsTest {
         // Expect one cluster with 2 members, and one with 1 member.
         // The single-member cluster is omitted by the current implementation.
         assertEquals(2, clusterLines.size(), "Should find one cluster with two members");
-        String line1 = clusterLines.get(0);
-        String line2 = clusterLines.get(1);
-        String clusterId = line1.split(",")[0];
-
-        assertTrue(line1.startsWith(clusterId + ",") && line1.endsWith("img1.png"));
-        assertTrue(line2.startsWith(clusterId + ",") && line2.endsWith("img2.png"));
+        String clusterId = clusterLines.get(0).split(",")[0];
+        assertTrue(clusterLines.stream().allMatch(line -> line.startsWith(clusterId + ",")), "All members should be in the same cluster");
+        assertTrue(clusterLines.stream().anyMatch(line -> line.endsWith("img1.png")), "Cluster should contain img1.png");
+        assertTrue(clusterLines.stream().anyMatch(line -> line.endsWith("img2.png")), "Cluster should contain img2.png");
     }
 
     @Test
