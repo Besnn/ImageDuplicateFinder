@@ -459,11 +459,22 @@
         let maxSize = 0;
         let originalReason = '';
 
+        // Determine oldest file (earliest modified timestamp)
+        let oldestIndex = 0;
+        let minModified = Number.MAX_SAFE_INTEGER;
+        let oldestReason = '';
+
         files.forEach((file, index) => {
             const size = file.size || 0;
             if (size > maxSize) {
                 maxSize = size;
                 likelyOriginalIndex = index;
+            }
+
+            const modified = file.modified || Number.MAX_SAFE_INTEGER;
+            if (modified < minModified) {
+                minModified = modified;
+                oldestIndex = index;
             }
         });
 
@@ -477,6 +488,11 @@
             }
         }
 
+        if (minModified !== Number.MAX_SAFE_INTEGER) {
+            const date = new Date(minModified);
+            oldestReason = `Oldest file (${date.toLocaleDateString()})`;
+        }
+
         files.forEach((file, index) => {
             const path = file.path || file;
             const key = `${clusterId}:${path}`;
@@ -488,23 +504,27 @@
 
             const encodedPath = encodeURIComponent(path);
             const isLikelyOriginal = index === likelyOriginalIndex && maxSize > 0;
+            const isOldest = index === oldestIndex && minModified !== Number.MAX_SAFE_INTEGER;
 
             imgDiv.innerHTML = `
-            <div class="image-wrapper">
-                ${isLikelyOriginal ? `<div class="original-badge">⭐ ${originalReason}</div>` : ''}
-                <img src="/api/image?path=${encodedPath}" alt="${path}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22%3E%3Ctext x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23999%22%3ENo Preview%3C/text%3E%3C/svg%3E'">
+        <div class="image-wrapper">
+            ${isLikelyOriginal ? `<div class="original-badge">⭐ ${originalReason}</div>` : ''}
+            ${isOldest && !isLikelyOriginal ? `<div class="original-badge" style="top: 40px; background: #9C27B0;">🕐 ${oldestReason}</div>` : ''}
+            ${isOldest && isLikelyOriginal ? `<div class="original-badge" style="top: 40px; background: #9C27B0;">🕐 ${oldestReason}</div>` : ''}
+            <img src="/api/image?path=${encodedPath}" alt="${path}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22%3E%3Ctext x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23999%22%3ENo Preview%3C/text%3E%3C/svg%3E'">
+        </div>
+        <div class="image-info">
+            <div class="image-path">${path.split(/[\\/]/).pop()}</div>
+            <div class="image-actions">
+                <span class="action-badge ${item.action}">${item.action.toUpperCase()}</span>
+                ${item.reason ? `<span class="reason">${item.reason}</span>` : ''}
             </div>
-            <div class="image-info">
-                <div class="image-path">${path.split(/[\\/]/).pop()}</div>
-                <div class="image-actions">
-                    <span class="action-badge ${item.action}">${item.action.toUpperCase()}</span>
-                    ${item.reason ? `<span class="reason">${item.reason}</span>` : ''}
-                </div>
-            </div>
-        `;
+        </div>
+    `;
             grid.appendChild(imgDiv);
         });
     }
+
 
 
     function setAction(clusterId, path, action) {
