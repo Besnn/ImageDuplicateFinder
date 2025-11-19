@@ -164,6 +164,13 @@
             margin-bottom: 8px;
         }
 
+        .image-badges {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+        }
+
         .image-actions {
             display: flex;
             gap: 5px;
@@ -234,22 +241,22 @@
             background: #F57C00;
         }
 
-        .original-badge {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            background: #2196F3; /* Blue background */
-            color: white; /* White text */
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 11px;
+        .badge {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 10px;
             font-weight: bold;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); /* A generic darker shadow */
-            z-index: 10;
-            max-width: 200px;
-            text-overflow: ellipsis;
-            overflow: hidden;
+            color: white;
             white-space: nowrap;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        .badge-largest {
+            background: #2196F3;
+        }
+
+        .badge-oldest {
+            background: #9C27B0;
         }
 
     </style>
@@ -508,13 +515,14 @@
 
             imgDiv.innerHTML = `
         <div class="image-wrapper">
-            ${isLikelyOriginal ? `<div class="original-badge">⭐ ${originalReason}</div>` : ''}
-            ${isOldest && !isLikelyOriginal ? `<div class="original-badge" style="top: 40px; background: #9C27B0;">🕐 ${oldestReason}</div>` : ''}
-            ${isOldest && isLikelyOriginal ? `<div class="original-badge" style="top: 40px; background: #9C27B0;">🕐 ${oldestReason}</div>` : ''}
             <img src="/api/image?path=${encodedPath}" alt="${path}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22%3E%3Ctext x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23999%22%3ENo Preview%3C/text%3E%3C/svg%3E'">
         </div>
         <div class="image-info">
             <div class="image-path">${path.split(/[\\/]/).pop()}</div>
+            <div class="image-badges">
+                ${isLikelyOriginal ? `<span class="badge badge-largest">⭐ ${originalReason}</span>` : ''}
+                ${isOldest ? `<span class="badge badge-oldest">🕐 ${oldestReason}</span>` : ''}
+            </div>
             <div class="image-actions">
                 <span class="action-badge ${item.action}">${item.action.toUpperCase()}</span>
                 ${item.reason ? `<span class="reason">${item.reason}</span>` : ''}
