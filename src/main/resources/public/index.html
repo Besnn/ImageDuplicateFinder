@@ -259,6 +259,16 @@
             background: #9C27B0;
         }
 
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            filter: grayscale(30%);
+        }
+        .btn:disabled:hover {
+            transform: none;
+            background: inherit;
+        }
+
     </style>
 </head>
 <body>
@@ -286,6 +296,9 @@
     </div>
     <div style="display: flex; gap: 10px;">
         <button class="btn" onclick="processImages()" style="background: #2196F3; color: white; font-weight: bold;">Process Images</button>
+    </div>
+    <div id="applyContainer" style="margin-top: 10px; display: none;">
+        <button id="applyBtn" class="btn btn-delete-all" onclick="applyPlan()">Apply Plan</button>
     </div>
     <div id="progressPanel" style="margin-top: 15px; display: none;">
         <div style="background: #f0f0f0; height: 20px; border-radius: 10px; overflow: hidden;">
@@ -353,6 +366,9 @@
             updateStats();
             document.getElementById('loading').style.display = 'none';
             document.getElementById('resultsPanel').style.display = 'block';
+            document.getElementById('applyContainer').style.display = 'block';
+            const applyBtn = document.getElementById('applyBtn');
+            applyBtn.disabled = Object.keys(planData).length === 0;
 
         } catch (error) {
             showError('Failed to load data: ' + error.message);
@@ -360,9 +376,38 @@
         }
     }
 
+    async function applyPlan() {
+        const btn = document.getElementById('applyBtn');
+        if (!confirm('Apply plan? DELETE files will be moved to quarantine.')) return;
+        try {
+            btn.disabled = true;
+            const originalText = btn.textContent;
+            btn.textContent = 'Applying...';
 
-
-
+            const resp = await fetch('/api/apply', {method: 'POST'});
+            if (!resp.ok) {
+                const txt = await resp.text();
+                throw new Error(txt || 'Failed to start apply');
+            }
+            const data = await resp.json();
+            const jobId = data.jobId;
+            alert('Apply started (job ' + jobId + '). Monitoring progress...');
+            try {
+                await pollJob(jobId);
+                alert('Apply completed.');
+                // keep button disabled after successful apply to avoid re-applying same plan
+                btn.textContent = originalText;
+                btn.disabled = true;
+            } catch (e) {
+                btn.textContent = originalText;
+                btn.disabled = false; // re-enable so user can retry
+                showError('Apply failed: ' + e.message);
+            }
+        } catch (e) {
+            document.getElementById('applyBtn').disabled = false;
+            showError('Apply failed: ' + e.message);
+        }
+    }
 
     function setAllAction(clusterId, action) {
         const files = clustersData[clusterId];
@@ -570,6 +615,8 @@
             if (response.ok) {
                 hasChanges = false;
                 document.getElementById('savePanel').classList.remove('show');
+                // Enable apply button because plan was just saved
+                document.getElementById('applyBtn').disabled = false;
                 alert('Plan saved successfully!');
             } else {
                 throw new Error('Failed to save');

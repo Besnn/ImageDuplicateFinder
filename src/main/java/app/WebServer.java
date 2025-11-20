@@ -232,9 +232,52 @@ public class WebServer {
             }
         });
 
+        app.post("/api/apply", ctx -> {
+            if (this.planCsv == null || !Files.exists(this.planCsv)) {
+                ctx.status(400).result("No plan available to apply");
+                return;
+            }
 
+            String jobId = UUID.randomUUID().toString();
+            JobStatus job = new JobStatus();
+            job.status = "running";
+            job.progress = 0;
+            job.message = "Starting apply...";
+            jobs.put(jobId, job);
 
+            CompletableFuture.runAsync(() -> {
+                try {
+                    job.progress = 5;
+                    job.message = "Preparing apply...";
 
+                    Commands.Apply applyCmd = new Commands.Apply();
+                    applyCmd.planCsv = this.planCsv;
+                    applyCmd.quarantine = Path.of("./quarantine");
+                    applyCmd.hardlink = false;
+
+                    job.progress = 10;
+                    job.message = "Applying plan...";
+
+                    int result = applyCmd.call();
+
+                    if (result == 0) {
+                        job.progress = 100;
+                        job.status = "completed";
+                        job.message = "Apply completed";
+                    } else {
+                        job.status = "failed";
+                        job.error = "Apply returned code: " + result;
+                        job.message = "Apply failed";
+                    }
+                } catch (Exception e) {
+                    job.status = "failed";
+                    job.error = e.getMessage();
+                    e.printStackTrace();
+                }
+            });
+
+            ctx.json(Map.of("jobId", jobId, "status", "started"));
+        });
 
         return app.start(port);
     }

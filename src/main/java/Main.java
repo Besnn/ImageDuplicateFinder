@@ -12,7 +12,3 @@ public class Main {
         System.exit(exitCode);
     }
 }
-
-//TODO: add png and then convert it to smaller jpeg
-// I can test if both tags are positioned properly
-// inside the image-info container when they're both present
