@@ -12,9 +12,11 @@ import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -103,7 +105,7 @@ class WebServerTest {
         TimeUnit.MILLISECONDS.sleep(100);
 
         String url = String.format("http://localhost:%d/api/process?directory=%s&threshold=0.95&algo=phash",
-                testPort, imagesDir.toString());
+                testPort, encode(imagesDir.toString()));
 
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
@@ -150,7 +152,7 @@ class WebServerTest {
         TimeUnit.MILLISECONDS.sleep(100);
 
         String url = String.format("http://localhost:%d/api/process?directory=%s&threshold=0.95&algo=phash",
-                testPort, imagesDir.toString());
+                testPort, encode(imagesDir.toString()));
 
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
@@ -185,7 +187,7 @@ class WebServerTest {
         TimeUnit.MILLISECONDS.sleep(100);
 
         // Start a processing job
-        String processUrl = String.format("http://localhost:%d/api/process?directory=%s", testPort, imagesDir);
+        String processUrl = String.format("http://localhost:%d/api/process?directory=%s", testPort, encode(imagesDir.toString()));
         HttpRequest processRequest = HttpRequest.newBuilder()
                 .uri(URI.create(processUrl))
                 .POST(HttpRequest.BodyPublishers.noBody())
@@ -388,7 +390,9 @@ class WebServerTest {
         app = server.start(testPort);
         TimeUnit.MILLISECONDS.sleep(100);
 
-        String url = String.format("http://localhost:%d/api/image?path=%s", testPort, imgPath.toString());
+        String encodedPath = URLEncoder.encode(imgPath.toString(), StandardCharsets.UTF_8);
+        String url = String.format("http://localhost:%d/api/image?path=%s", testPort, encodedPath);
+
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
                 .GET()
@@ -406,8 +410,8 @@ class WebServerTest {
         app = server.start(testPort);
         TimeUnit.MILLISECONDS.sleep(100);
 
-        String url = String.format("http://localhost:%d/api/image?path=/non/existent/image.png", testPort);
-        HttpRequest request = HttpRequest.newBuilder()
+        String encodedPath = URLEncoder.encode("/non/existent/image.png", StandardCharsets.UTF_8);
+        String url = String.format("http://localhost:%d/api/image?path=%s", testPort, encodedPath);        HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
                 .GET()
                 .build();
@@ -500,7 +504,7 @@ class WebServerTest {
 
         // 1. Start processing
         String processUrl = String.format("http://localhost:%d/api/process?directory=%s&threshold=0.95&algo=phash",
-                testPort, imagesDir.toString());
+                testPort, encode(imagesDir.toString()));
         HttpRequest processRequest = HttpRequest.newBuilder()
                 .uri(URI.create(processUrl))
                 .POST(HttpRequest.BodyPublishers.noBody())
@@ -552,6 +556,10 @@ class WebServerTest {
     }
 
     // Helper methods
+
+    private String encode(String s) {
+        return URLEncoder.encode(s, StandardCharsets.UTF_8);
+    }
 
     private Path createTestImage(Path directory, String filename, byte[] data) throws IOException {
         Path imgPath = directory.resolve(filename);
