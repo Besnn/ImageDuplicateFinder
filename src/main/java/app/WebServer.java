@@ -336,9 +336,16 @@ public class WebServer {
             csv.printRecord("clusterId", "action", "path", "reason");
 
             for (Map<String, String> item : updates) {
+                String rawAction = item.getOrDefault("action", "keep");
+                String action = rawAction == null ? "keep" : rawAction.trim().toLowerCase();
+                if (!action.equals("keep") && !action.equals("delete")) {
+                    // fallback to keep for unknown values
+                    action = "keep";
+                }
+
                 csv.printRecord(
                         item.getOrDefault("clusterId", ""),
-                        item.getOrDefault("action", "keep"),
+                        action,
                         item.getOrDefault("path", ""),
                         item.getOrDefault("reason", "")
                 );
@@ -364,7 +371,19 @@ public class WebServer {
             for (CSVRecord record : csv) {
                 Map<String, String> item = new HashMap<>();
                 item.put("clusterId", record.get("clusterId"));
-                item.put("action", record.get("action"));
+
+                String rawAction = "";
+                try {
+                    rawAction = record.get("action");
+                } catch (Exception e) {
+                    rawAction = "";
+                }
+                String action = rawAction == null ? "keep" : rawAction.trim().toLowerCase();
+                if (!action.equals("keep") && !action.equals("delete")) {
+                    action = action.equalsIgnoreCase("delete") ? "delete" : "keep";
+                }
+                item.put("action", action);
+
                 item.put("path", record.get("path"));
                 item.put("reason", record.size() > 3 ? record.get("reason") : "");
                 result.add(item);

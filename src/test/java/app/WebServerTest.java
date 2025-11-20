@@ -339,8 +339,8 @@ class WebServerTest {
         List<Map<String, String>> plan = gson.fromJson(response.body(), listType);
 
         assertEquals(2, plan.size(), "Should return 2 plan entries");
-        assertEquals("KEEP", plan.get(0).get("action"));
-        assertEquals("DELETE", plan.get(1).get("action"));
+        assertEquals("keep", plan.get(0).get("action"));
+        assertEquals("delete", plan.get(1).get("action"));
     }
 
     @Test
@@ -378,7 +378,7 @@ class WebServerTest {
 
         // Verify file was updated
         List<String> updatedLines = Files.readAllLines(planCsv);
-        assertTrue(updatedLines.stream().anyMatch(line -> line.contains("DELETE")),
+        assertTrue(updatedLines.stream().anyMatch(line -> line.contains("delete")),
                 "Plan file should contain updated action");
     }
 
@@ -549,8 +549,8 @@ class WebServerTest {
         assertTrue(plan.size() >= 2, "Plan should have at least 2 entries (KEEP and DELETE)");
 
         // Verify plan has both KEEP and DELETE actions
-        boolean hasKeep = plan.stream().anyMatch(entry -> "KEEP".equals(entry.get("action")));
-        boolean hasDelete = plan.stream().anyMatch(entry -> "DELETE".equals(entry.get("action")));
+        boolean hasKeep = plan.stream().anyMatch(entry -> "keep".equals(entry.get("action")));
+        boolean hasDelete = plan.stream().anyMatch(entry -> "delete".equals(entry.get("action")));
         assertTrue(hasKeep, "Plan should have at least one KEEP action");
         assertTrue(hasDelete, "Plan should have at least one DELETE action");
     }
