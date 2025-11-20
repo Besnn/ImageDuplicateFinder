@@ -24,6 +24,18 @@ import java.util.concurrent.Callable;
 
 public final class Commands {
 
+    // Helper: if the provided output Path has no parent (simple filename), create a dot-prefixed
+    // temporary directory in the current working directory and return a Path to the file inside it.
+    private static Path placeInDotTempIfNoParent(Path out) throws Exception {
+        if (out == null) return out;
+        // If the path is absolute or already has a parent, leave it as-is
+        if (out.isAbsolute() || out.getParent() != null) return out;
+        // Create temp dir in current working dir with prefix that starts with a dot
+        Path cwd = Path.of(".");
+        Path tempDir = Files.createTempDirectory(cwd, ".idf");
+        return tempDir.resolve(out.getFileName());
+    }
+
     @Command(
             name = "hash",
             description = "Compute perceptual hashes for images under ROOT.",
@@ -37,7 +49,7 @@ public final class Commands {
         @Option(names = "--algo", defaultValue = "phash", description = "Hasher: ahash|dhash|phash")
         String algo;
 
-        @Option(names = "--out", defaultValue = "index.csv", description = "Output index file (CSV)")
+        @Option(names = "--out", defaultValue = "hashes.csv", description = "Output index file (CSV)")
         Path out;
 
         @Override
@@ -76,9 +88,12 @@ public final class Commands {
                 var lines = id2hash.entrySet().stream()
                         .map(e -> e.getKey() + "," + Long.toUnsignedString(e.getValue()))
                         .toList();
-                Files.write(out, lines);
 
-                System.out.printf("Hashed %d images with %s -> %s%n", id2hash.size(), hasher.name(), out);
+                // Ensure out is placed into a dot-prefixed temp folder when it's a simple filename
+                Path finalOut = placeInDotTempIfNoParent(out);
+                Files.write(finalOut, lines);
+
+                System.out.printf("Hashed %d images with %s -> %s%n", id2hash.size(), hasher.name(), finalOut);
                 return CLI.Exit.OK;
 
             } catch (NoSuchFileException e) {
@@ -138,9 +153,11 @@ public final class Commands {
                         rows.add(c.id() + "," + member);
                     }
                 }
-                Files.write(out, rows);
+
+                Path finalOut = placeInDotTempIfNoParent(out);
+                Files.write(finalOut, rows);
                 System.out.printf("Total clusters: %d, with duplicates: %d -> %s%n",
-                        totalClusters, duplicateClusters, out);
+                        totalClusters, duplicateClusters, finalOut);
                 return CLI.Exit.OK;
 
             } catch (NoSuchFileException e) {
@@ -186,11 +203,11 @@ public final class Commands {
                 for (var e : groups.entrySet()) {
                     String cid = e.getKey();
                     List<Path> files = e.getValue();
-                    
+
                     // Pre-compute metadata to avoid re-computing in sort
                     Map<Path, FileMeta> metas = new HashMap<>();
                     files.forEach(p -> metas.put(p, meta(p)));
-                    
+
                     // score files: bigger resolution, then size, then older mtime, then path
                     files.sort((a, b) -> {
                         FileMeta ma = metas.get(a), mb = metas.get(b);
@@ -202,7 +219,7 @@ public final class Commands {
                         if (byTime != 0) return byTime;
                         return a.toString().compareToIgnoreCase(b.toString());
                     });
-                    
+
                     Path keeper = files.getFirst(); // The best file after sorting
                     FileMeta mk = metas.get(keeper);
                     rows.add(String.format("%s,KEEP,%s,keeper(pixels=%d,size=%d,mtime=%d)",
@@ -216,8 +233,9 @@ public final class Commands {
                     }
                 }
 
-                Files.write(out, rows);
-                System.out.println("Plan written -> " + out);
+                Path finalOut = placeInDotTempIfNoParent(out);
+                Files.write(finalOut, rows);
+                System.out.println("Plan written -> " + finalOut);
                 return 0;
             } catch (Exception ex) {
                 ex.printStackTrace();

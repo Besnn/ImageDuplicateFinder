@@ -76,25 +76,30 @@ public class WebServer {
                         return;
                     }
 
+                    // Create a dot-prefixed temporary directory inside the provided directory. The
+                    // prefix must be at least 3 characters long, so use ".idf" to ensure the
+                    // resulting directory name starts with a dot (e.g. .idf123456).
+                    Path tempDir = Files.createTempDirectory(dirPath, ".idf");
+
                     // Step 1: Hash images
                     job.progress = 10;
                     job.message = "Hashing images with " + algo.toUpperCase() + "...";
 
-                    Path hashFile = dirPath.resolve("hashes.csv");
+                    Path hashFile = tempDir.resolve("hashes.csv");
                     Commands.hashImages(directory, hashFile.toString(), algo);
 
                     job.progress = 40;
                     job.message = "Finding duplicates...";
 
                     // Step 2: Cluster
-                    Path clustersFile = dirPath.resolve("clusters.csv");
+                    Path clustersFile = tempDir.resolve("clusters.csv");
                     Commands.clusterImages(hashFile.toString(), clustersFile.toString(), threshold);
 
                     job.progress = 70;
                     job.message = "Generating plan...";
 
                     // Step 3: Generate plan
-                    Path planFile = dirPath.resolve("plan.csv");
+                    Path planFile = tempDir.resolve("plan.csv");
                     Commands.generatePlan(clustersFile.toString(), planFile.toString());
 
                     // Verify files exist and have content
@@ -158,7 +163,6 @@ public class WebServer {
 
             ctx.json(response);
         });
-
 
         app.get("/api/clusters", ctx -> {
             ctx.json(loadClusters());
@@ -369,7 +373,6 @@ public class WebServer {
 
         return result;
     }
-
 
 
 
