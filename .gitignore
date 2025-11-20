@@ -43,3 +43,7 @@ target/
 /debug-after.jpg
 /debug-before.jpg
 /.idea/
+/src/test/java/app/WebServerTest.README.md
+/src/test/java/app/WebUITest.README.md
+/QUICK_TEST_GUIDE.md
+/TEST_SUITE_README.md
