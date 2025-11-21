@@ -241,6 +241,33 @@
             background: #F57C00;
         }
 
+        .navigation-panel {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            display: none;
+        }
+
+        .navigation-panel.show {
+            display: block;
+        }
+
+        .btn-next {
+            background: #9C27B0;
+            color: white;
+            padding: 10px 20px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .btn-next:hover {
+            background: #7B1FA2;
+        }
+
         .badge {
             padding: 4px 10px;
             border-radius: 12px;
@@ -325,10 +352,29 @@
     <button class="btn btn-save" onclick="savePlan()">Save Changes</button>
 </div>
 
+<div id="navigationPanel" class="navigation-panel">
+    <button class="btn btn-next" onclick="scrollToNextCluster()">Next Grouping (<span id="currentCluster">1</span>/<span id="totalClusters">0</span>)</button>
+</div>
+
 <script>
     let planData = {};
     let clustersData = {}; // Add this
     let hasChanges = false;
+    let currentClusterIndex = 0;
+    let clusterIds = [];
+
+    function scrollToNextCluster() {
+        if (clusterIds.length === 0) return;
+
+        currentClusterIndex = (currentClusterIndex + 1) % clusterIds.length;
+        const clusterId = clusterIds[currentClusterIndex];
+        const element = document.getElementById(`cluster-${clusterId}`);
+
+        if (element) {
+            element.parentElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            document.getElementById('currentCluster').textContent = currentClusterIndex + 1;
+        }
+    }
 
     async function loadData() {
         try {
@@ -353,6 +399,16 @@
             });
 
             renderClusters(clusters);
+
+            // Initialize cluster navigation
+            clusterIds = clusters.map(c => c.id);
+            currentClusterIndex = 0;
+            document.getElementById('totalClusters').textContent = clusterIds.length;
+            document.getElementById('currentCluster').textContent = clusterIds.length > 0 ? '1' : '0';
+
+            if (clusterIds.length > 1) {
+                document.getElementById('navigationPanel').classList.add('show');
+            }
 
             // Auto-generate initial plan if no plan exists
             if (Object.keys(planData).length === 0 && clusters.length > 0) {
