@@ -318,8 +318,30 @@
         <input type="text" id="directoryInput" style="width: 100%; padding: 8px; margin-top: 5px;" placeholder="C:\Pictures">
     </div>
     <div style="margin-bottom: 15px;">
-        <label>Similarity threshold: <span id="thresholdValue">0.95</span></label>
-        <input type="range" id="thresholdInput" value="0.95" min="0.5" max="1.0" step="0.01" style="width: 100%; margin-top: 5px;" oninput="document.getElementById('thresholdValue').textContent = this.value">
+        <label>Detection Mode:</label>
+        <select id="modeInput" style="width: 100%; padding: 8px; margin-top: 5px;" onchange="updateFromPreset()">
+            <option value="identical">Identical Images (Exact matches)</option>
+            <option value="similar" selected>Similar Images (Near duplicates)</option>
+        </select>
+    </div>
+    <div style="margin-bottom: 15px;">
+        <label>
+            <input type="checkbox" id="advancedCheckbox" onchange="toggleAdvanced()"> Show Advanced Settings
+        </label>
+    </div>
+    <div id="advancedSettings" style="display: none; border: 1px solid #ddd; padding: 15px; border-radius: 4px; margin-bottom: 15px; background: #fafafa;">
+        <div style="margin-bottom: 15px;">
+            <label>Similarity threshold: <span id="thresholdValue">0.95</span></label>
+            <input type="range" id="thresholdInput" value="0.95" min="0.5" max="1.0" step="0.01" style="width: 100%; margin-top: 5px;" oninput="document.getElementById('thresholdValue').textContent = this.value">
+        </div>
+        <div style="margin-bottom: 15px;">
+            <label>Hash algorithm:</label>
+            <select id="algoInput" style="width: 100%; padding: 8px; margin-top: 5px;">
+                <option value="phash" selected>PHash (Perceptual Hash - Recommended)</option>
+                <option value="dhash">DHash (Difference Hash - Fast)</option>
+                <option value="ahash">AHash (Average Hash - Fastest)</option>
+            </select>
+        </div>
     </div>
     <div style="display: flex; gap: 10px;">
         <button class="btn" onclick="processImages()" style="background: #2196F3; color: white; font-weight: bold;">Process Images</button>
@@ -333,14 +355,6 @@
         </div>
         <div id="progressText" style="margin-top: 5px; color: #666; font-size: 12px;"></div>
     </div>
-</div>
-<div style="margin-bottom: 15px;">
-    <label>Hash algorithm:</label>
-    <select id="algoInput" style="width: 100%; padding: 8px; margin-top: 5px;">
-        <option value="phash" selected>PHash (Perceptual Hash - Recommended)</option>
-        <option value="dhash">DHash (Difference Hash - Fast)</option>
-        <option value="ahash">AHash (Average Hash - Fastest)</option>
-    </select>
 </div>
 
 
@@ -362,6 +376,31 @@
     let hasChanges = false;
     let currentClusterIndex = 0;
     let clusterIds = [];
+
+    function toggleAdvanced() {
+        const checkbox = document.getElementById('advancedCheckbox');
+        const advancedSettings = document.getElementById('advancedSettings');
+        advancedSettings.style.display = checkbox.checked ? 'block' : 'none';
+    }
+
+    function updateFromPreset() {
+        const mode = document.getElementById('modeInput').value;
+        const thresholdInput = document.getElementById('thresholdInput');
+        const thresholdValue = document.getElementById('thresholdValue');
+        const algoInput = document.getElementById('algoInput');
+
+        if (mode === 'identical') {
+            // Identical images: use exact match (threshold 1.0)
+            thresholdInput.value = '1.0';
+            thresholdValue.textContent = '1.0';
+            algoInput.value = 'ahash'; // Fastest for exact matches
+        } else if (mode === 'similar') {
+            // Similar images: use perceptual hash with high threshold
+            thresholdInput.value = '0.95';
+            thresholdValue.textContent = '0.95';
+            algoInput.value = 'phash'; // Best for similar images
+        }
+    }
 
     function scrollToNextCluster() {
         if (clusterIds.length === 0) return;
